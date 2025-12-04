@@ -5,11 +5,18 @@ import { resolvePageComponent } from 'laravel-vite-plugin/inertia-helpers';
 import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 import { initializeTheme } from './hooks/use-appearance';
-import { Ziggy } from './ziggy';
 import { route } from 'ziggy-js';
 
-// Make route global
-window.route = (name, params, absolute, config = Ziggy) => route(name, params, absolute, config);
+// Make route global using Ziggy injected by @routes
+declare global {
+    interface Window {
+        Ziggy: any;
+        route: typeof route;
+    }
+}
+
+window.route = (name, params, absolute, config = window.Ziggy) =>
+    route(name, params, absolute, config);
 
 const appName = import.meta.env.VITE_APP_NAME || 'Laravel';
 
