@@ -1,0 +1,296 @@
+name: Deploy to Production
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    name: Deploy Application
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+          cache: 'npm'
+
+      - name: Setup PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.2'
+          extensions: mbstring, xml, ctype, json, bcmath, pdo, pdo_pgsql
+          tools: composer:v2
+
+      - name: Install PHP dependencies
+        run: composer install --no-dev --optimize-autoloader --no-interaction --prefer-dist
+
+      - name: Install Node.js dependencies
+        run: npm ci --production=false
+
+      - name: Build frontend assets
+        run: VITE_API_URL=${{ secrets.APP_URL }}/api npm run build
+
+      - name: Create .env file
+        env:
+          APP_NAME: ${{ secrets.APP_NAME }}
+          APP_ENV: ${{ secrets.APP_ENV || 'production' }}
+          APP_KEY: ${{ secrets.APP_KEY }}
+          APP_DEBUG: ${{ secrets.APP_DEBUG || 'false' }}
+          APP_URL: ${{ secrets.APP_URL }}
+          DB_CONNECTION: ${{ secrets.DB_CONNECTION || 'mysql' }}
+          DB_HOST: ${{ secrets.DB_HOST }}
+          DB_PORT: ${{ secrets.DB_PORT || 3306 }}
+          DB_DATABASE: ${{ secrets.DB_DATABASE }}
+          DB_USERNAME: ${{ secrets.DB_USERNAME }}
+          DB_PASSWORD: ${{ secrets.DB_PASSWORD }}
+        run: |
+          cat > .env << 'EOF'
+          APP_NAME="${{ env.APP_NAME }}"
+          APP_ENV=${{ env.APP_ENV }}
+          APP_KEY=${{ env.APP_KEY }}
+          APP_DEBUG=${{ env.APP_DEBUG }}
+          APP_URL=${{ env.APP_URL }}
+          APP_LOCALE=pt_BR
+          APP_FALLBACK_LOCALE=pt_BR
+          APP_FAKER_LOCALE=pt_BR
+          APP_MAINTENANCE_DRIVER=file
+          BCRYPT_ROUNDS=12
+          LOG_CHANNEL=stack
+          LOG_STACK=single
+          LOG_DEPRECATIONS_CHANNEL=null
+          LOG_LEVEL=error
+          DB_CONNECTION=${{ env.DB_CONNECTION }}
+          DB_HOST=${{ env.DB_HOST }}
+          DB_PORT=${{ env.DB_PORT }}
+          DB_DATABASE=${{ env.DB_DATABASE }}
+          DB_USERNAME=${{ env.DB_USERNAME }}
+          DB_PASSWORD=${{ env.DB_PASSWORD }}
+          SESSION_DRIVER=file
+          SESSION_LIFETIME=120
+          SESSION_ENCRYPT=false
+          SESSION_PATH=/
+          SESSION_DOMAIN=null
+          BROADCAST_CONNECTION=log
+          FILESYSTEM_DISK=local
+          QUEUE_CONNECTION=database
+          CACHE_STORE=database
+          VITE_APP_NAME="${{ env.APP_NAME }}"
+          EOF
+
+      - name: Create deployment script
+        run: |
+          cat > deploy.sh << 'DEPLOY_SCRIPT'
+          #!/bin/bash
+          set -e
+          GREEN='\033[0;32m'
+          YELLOW='\033[1;33m'
+          NC='\033[0m'
+          echo -e "${GREEN}Iniciando deploy da aplicação...${NC}"
+
+          if [ -f "index.htm" ]; then
+            echo -e "${YELLOW}Removendo index.htm padrão...${NC}"
+            rm index.htm
+          fi
+
+          if [ ! -f ".env.deployed" ]; then
+            FIRST_DEPLOY=true
+            echo -e "${YELLOW}Primeiro deploy detectado${NC}"
+            touch .env.deployed
+          else
+            FIRST_DEPLOY=false
+            echo -e "${GREEN}Deploy de atualização${NC}"
+          fi
+
+          if [ "$FIRST_DEPLOY" = false ]; then
+            echo -e "${YELLOW}Ativando modo de manutenção...${NC}"
+            php artisan down || true
+          fi
+
+          if [ "$FIRST_DEPLOY" = true ]; then
+            if ! grep -q "APP_KEY=base64:" .env; then
+              echo -e "${GREEN}Gerando chave da aplicação...${NC}"
+              php artisan key:generate --force
+            fi
+          fi
+
+          echo -e "${GREEN}Instalando dependências do Composer...${NC}"
+          composer install --no-dev --optimize-autoloader --no-interaction --prefer-dist
+
+          echo -e "${GREEN}Executando migrations...${NC}"
+          php artisan migrate --force
+
+          echo -e "${GREEN}Otimizações Laravel...${NC}"
+          php artisan config:cache
+          php artisan route:cache
+          php artisan view:cache
+          php artisan event:cache
+
+          echo -e "${GREEN}Ajustando permissões...${NC}"
+          chmod -R 755 storage bootstrap/cache 2>/dev/null || true
+
+          if [ "$FIRST_DEPLOY" = false ]; then
+            echo -e "${GREEN}Desativando modo de manutenção...${NC}"
+            php artisan up
+          fi
+
+          echo -e "${GREEN}Deploy concluído com sucesso!${NC}"
+          DEPLOY_SCRIPT
+          chmod +x deploy.sh
+
+      - name: Compress files
+        run: |
+          zip -r release.zip . -x \
+            ".git/*" \
+            ".github/*" \
+            "tests/*" \
+            "node_modules/*" \
+            "deploy.sh" \
+            ".env.example" \
+            ".editorconfig" \
+            ".gitignore" \
+            ".gitattributes" \
+            "phpunit.xml" \
+            "vite.config.js" \
+            "package.json" \
+            "README.md" \
+            "resources/js/*" \
+            "resources/css/*"
+          unzip -l release.zip | grep "vendor/autoload.php" || echo "vendor/autoload.php NÃO encontrado no ZIP!"
+
+      - name: Create Finalize Script
+        run: |
+          cat > public/finalize.php << 'PHP_FINALIZE'
+          <?php
+          ini_set('display_errors', 1);
+          error_reporting(E_ALL);
+          set_time_limit(600);
+          function shutdown() {
+              $error = error_get_last();
+              if ($error && ($error['type'] === E_ERROR || $error['type'] === E_PARSE || $error['type'] === E_COMPILE_ERROR)) {
+                  echo "\nFATAL ERROR: " . $error['message'] . " in " . $error['file'] . ":" . $error['line'] . "\n";
+              }
+              echo "</pre>";
+          }
+          register_shutdown_function('shutdown');
+          echo "<h1>Finalizing Deployment</h1><pre>";
+          $root = dirname(__DIR__);
+          echo "Root: $root\n";
+
+          $zipPath = $root . '/release.zip';
+          if (file_exists($zipPath)) {
+              echo "\n--- Extracting release.zip ---\n";
+              $zip = new ZipArchive;
+              if ($zip->open($zipPath) === TRUE) {
+                  $zip->extractTo($root);
+                  $zip->close();
+                  echo "Extracted release.zip successfully.\n";
+              } else {
+                  echo "Failed to open release.zip\n";
+              }
+          } else {
+              echo "release.zip not found. Skipping extraction.\n";
+          }
+
+          $envPath = $root . '/.env';
+          if (!file_exists($envPath)) {
+              echo ".env file NOT FOUND!\n";
+          }
+
+          echo "\n--- Permissions ---\n";
+          $dirs = ['storage', 'storage/app', 'storage/app/public', 'storage/framework', 'storage/framework/views', 'storage/logs', 'bootstrap/cache'];
+          foreach ($dirs as $dir) {
+              $path = "$root/$dir";
+              if (!file_exists($path)) {
+                  mkdir($path, 0775, true);
+                  echo "Created $dir\n";
+              }
+              chmod($path, 0775);
+          }
+          echo "Permissions set.\n";
+
+          echo "\n--- Clearing Bootstrap Cache ---\n";
+          $cacheFiles = [
+              $root . '/bootstrap/cache/config.php',
+              $root . '/bootstrap/cache/routes.php',
+              $root . '/bootstrap/cache/packages.php',
+              $root . '/bootstrap/cache/services.php'
+          ];
+          foreach ($cacheFiles as $file) {
+              if (file_exists($file)) {
+                  unlink($file);
+                  echo "Deleted: " . basename($file) . "\n";
+              }
+          }
+
+          echo "\n--- Storage Symlink ---\n";
+          $target = $root . '/storage/app/public';
+          $link = $root . '/public/storage';
+          if (function_exists('symlink')) {
+              if (!file_exists($link)) {
+                  if (symlink($target, $link)) {
+                       echo "Symlink created: $link -> $target\n";
+                  }
+              } else {
+                  echo "Symlink already exists.\n";
+              }
+          } else {
+              echo "symlink() function disabled.\n";
+          }
+
+          echo "\n--- Booting Laravel ---\n";
+          require $root . '/vendor/autoload.php';
+          $app = require_once $root . '/bootstrap/app.php';
+          $kernel = $app->make(Illuminate\Contracts\Console\Kernel::class);
+
+          function runCommand($cmd, $kernel) {
+              echo "Running: php artisan $cmd\n";
+              $status = $kernel->call($cmd);
+              echo $kernel->output();
+              echo "Status: " . ($status == 0 ? 'SUCCESS' : 'ERROR') . "\n\n";
+          }
+
+          runCommand('optimize:clear', $kernel);
+          runCommand('migrate --force', $kernel);
+          runCommand('config:cache', $kernel);
+          runCommand('route:cache', $kernel);
+          runCommand('view:cache', $kernel);
+
+          echo "\nFinalization Complete.\n";
+          ?>
+          PHP_FINALIZE
+
+      - name: Deploy Zip via FTP
+        uses: SamKirkland/FTP-Deploy-Action@v4.3.5
+        with:
+          server: ${{ secrets.FTP_HOST }}
+          username: ${{ secrets.FTP_USERNAME }}
+          password: ${{ secrets.FTP_PASSWORD }}
+          port: ${{ secrets.FTP_PORT || 21 }}
+          protocol: ${{ secrets.FTP_PROTOCOL || 'ftps' }}
+          local-dir: ./
+          server-dir: ${{ secrets.FTP_SERVER_DIR }}
+          dangerous-clean-slate: false
+          security: loose
+          log-level: verbose
+          exclude: |
+            **
+            !release.zip
+            !public/finalize.php
+            !.env
+            !.htaccess
+
+      - name: Trigger Finalize
+        run: |
+          curl -k -v "${{ secrets.APP_URL }}/finalize.php"
+
+      - name: Verify deployment
+        run: |
+          echo "Deployment completed successfully!"
+          echo "Application URL: ${{ secrets.APP_URL }}"
