@@ -341,57 +341,26 @@ jobs:
           ?>
           PHP_FINALIZE
 
-      - name: Install curl (FTP client)
-        run: sudo apt-get update && sudo apt-get install -y curl
-
-      - name: Deploy via FTP (curl)
-        env:
-          FTP_USERNAME: ${{ secrets.FTP_USERNAME }}
-          FTP_PASSWORD: ${{ secrets.FTP_PASSWORD }}
-          FTP_HOST: ${{ secrets.FTP_HOST }}
-          FTP_SERVER_DIR: ${{ secrets.FTP_SERVER_DIR }}
-          FTP_PORT: ${{ secrets.FTP_PORT }}
-          FTP_PROTOCOL: ${{ secrets.FTP_PROTOCOL }}
-        run: |
-          set -e
-          # Sanitização de host e caminho
-          HOST_RAW="$FTP_HOST"
-          HOST_CLEAN="${HOST_RAW#ftp://}"
-          HOST_CLEAN="${HOST_CLEAN#ftps://}"
-
-          PORT_TO_USE="${FTP_PORT:-21}"
-          PROTOCOL="${FTP_PROTOCOL:-ftp}"
-
-          FTP_TARGET_DIR="${FTP_SERVER_DIR:-/}"
-          case "$FTP_TARGET_DIR" in
-            /*) ;;
-            *) FTP_TARGET_DIR="/$FTP_TARGET_DIR" ;;
-          esac
-
-          echo "🔍 Resolvendo host: $HOST_CLEAN"
-          getent hosts "$HOST_CLEAN" || { echo "❌ Host não resolve DNS: $HOST_CLEAN"; exit 1; }
-
-          BASE_URL="$PROTOCOL://$HOST_CLEAN:$PORT_TO_USE$FTP_TARGET_DIR"
-          AUTH="--user $FTP_USERNAME:$FTP_PASSWORD"
-          echo "🔗 BASE_URL: $BASE_URL"
-
-          echo "📄 Listando diretório alvo para validação"
-          if ! curl -s $AUTH --ftp-method nocwd --list-only "$BASE_URL/" > /dev/null; then
-            echo "❌ Não foi possível listar '$FTP_TARGET_DIR' em $HOST_CLEAN:$PORT_TO_USE"
-            echo "   Verifique o valor de FTP_SERVER_DIR (ex.: 'public_html') e permissões do usuário."
-            exit 1
-          fi
-
-          echo "⬆️  Enviando release.zip, deploy.sh, .env"
-          curl --fail $AUTH --ftp-method nocwd --ftp-create-dirs --upload-file release.zip "$BASE_URL/release.zip"
-          curl --fail $AUTH --ftp-method nocwd --ftp-create-dirs --upload-file deploy.sh "$BASE_URL/deploy.sh"
-          curl --fail $AUTH --ftp-method nocwd --ftp-create-dirs --upload-file .env "$BASE_URL/.env"
-
-          echo "⬆️  Enviando public/finalize.php e public/.htaccess"
-          curl --fail $AUTH --ftp-method nocwd --ftp-create-dirs --upload-file public/finalize.php "$BASE_URL/public/finalize.php"
-          curl --fail $AUTH --ftp-method nocwd --ftp-create-dirs --upload-file public/.htaccess "$BASE_URL/public/.htaccess"
-
-          echo "✅ Upload via FTP concluído"
+      - name: Deploy Zip via FTP
+        uses: SamKirkland/FTP-Deploy-Action@v4.3.5
+        with:
+          server: ${{ secrets.FTP_HOST }}
+          username: ${{ secrets.FTP_USERNAME }}
+          password: ${{ secrets.FTP_PASSWORD }}
+          port: ${{ secrets.FTP_PORT }}
+          protocol: ${{ secrets.FTP_PROTOCOL }}
+          local-dir: ./
+          server-dir: ${{ secrets.FTP_SERVER_DIR }}
+          dangerous-clean-slate: false
+          security: loose
+          log-level: verbose
+          exclude: |
+            **
+            !release.zip
+            !deploy.sh
+            !.env
+            !public/finalize.php
+            !public/.htaccess
 
       - name: Trigger Finalize
         env:
