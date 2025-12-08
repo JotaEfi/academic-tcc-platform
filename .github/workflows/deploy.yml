@@ -345,13 +345,23 @@ jobs:
         run: sudo apt-get update && sudo apt-get install -y lftp
 
       - name: Deploy via LFTP
+        env:
+          FTP_USERNAME: ${{ secrets.FTP_USERNAME }}
+          FTP_PASSWORD: ${{ secrets.FTP_PASSWORD }}
+          FTP_HOST: ${{ secrets.FTP_HOST }}
+          FTP_SERVER_DIR: ${{ secrets.FTP_SERVER_DIR }}
         run: |
+          # Define fallback de diretório via shell (secrets não suportam "||" direto)
+          FTP_TARGET_DIR="$FTP_SERVER_DIR"
+          if [ -z "$FTP_TARGET_DIR" ]; then FTP_TARGET_DIR="/"; fi
+
           lftp -e "
           set ftp:ssl-allow no;
-          set ftp:use-epsv no;
-          open -u '${{ secrets.FTP_USERNAME }}','${{ secrets.FTP_PASSWORD }}' '${{ secrets.FTP_HOST }}';
+          set ftp:passive-mode on;
+          open -u '$FTP_USERNAME','$FTP_PASSWORD' '$FTP_HOST';
           ls -la;
-          cd '${{ secrets.FTP_SERVER_DIR || '/www/' }}' || echo 'Directory not found, staying in root';
+          cd '$FTP_TARGET_DIR' || echo 'Directory not found, staying in root';
+          ls -la;
           put release.zip;
           put deploy.sh;
           put .env;
@@ -362,15 +372,18 @@ jobs:
           "
 
       - name: Trigger Finalize
+        env:
+          APP_URL: ${{ secrets.APP_URL }}
+          FTP_SERVER_DIR: ${{ secrets.FTP_SERVER_DIR }}
         run: |
           echo "Triggering finalize..."
-          curl -k -v "${{ secrets.APP_URL }}/finalize.php"
+          curl -k -v "$APP_URL/finalize.php"
 
       - name: Verify deployment
         run: |
           echo "✅ Deployment completed successfully!"
-          echo "🌐 Application URL: ${{ secrets.APP_URL }}"
+          echo "🌐 Application URL: $APP_URL"
           echo ""
           echo "⚠️  IMPORTANTE: Execute manualmente no servidor:"
-          echo "   cd ${{ secrets.FTP_SERVER_DIR }}"
+          echo "   cd $FTP_SERVER_DIR"
           echo "   bash deploy.sh"
