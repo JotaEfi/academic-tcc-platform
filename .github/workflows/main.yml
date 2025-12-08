@@ -399,18 +399,21 @@ jobs:
                   sudo apt-get install -y lftp
 
                   echo "🚀 Iniciando upload via LFTP..."
-                  # Opções explicadas:
-                  # ssl:verify-certificate no -> Aceitar certificados auto-assinados (security: loose)
-                  # ftp:use-epsv false        -> CORREÇÃO DO ECONNRESET (Força modo passivo antigo)
-                  # mirror -R                 -> Unidirecional (Upload apenas)
-                  lftp -f "
+
+                  # Mudamos para o diretório de staging para facilitar o mirror
+                  cd deploy_staging
+
+                  # Comando lftp atualizado:
+                  # - Removemos ftp:use-epsv (inválido)
+                  # - Usamos mirror -R . (diretório atual) para o destino
+                  # - set ftp:ssl-protect-data true é crucial para segurança e estabilidade TLS
+                  lftp -e "
                   set ssl:verify-certificate no
                   set ftp:ssl-allow true
                   set ftp:ssl-force true
                   set ftp:ssl-protect-data true
-                  set ftp:use-epsv false
                   open -u ${{ secrets.FTP_USERNAME }},${{ secrets.FTP_PASSWORD }} -p ${{ secrets.FTP_PORT || 21 }} ${{ secrets.FTP_HOST }}
-                  mirror -R -v --parallel=2 ./deploy_staging ${{ secrets.FTP_SERVER_DIR }}
+                  mirror -R -v --parallel=2 . ${{ secrets.FTP_SERVER_DIR }}
                   bye
                   "
 
