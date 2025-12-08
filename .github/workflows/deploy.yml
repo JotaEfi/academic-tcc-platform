@@ -274,9 +274,9 @@ jobs:
         run: |
           lftp -e "
           set ftp:ssl-allow no;
-          set ftp:use-epsv no;
           open -u '${{ secrets.FTP_USERNAME }}','${{ secrets.FTP_PASSWORD }}' '${{ secrets.FTP_HOST }}';
-          cd '${{ secrets.FTP_SERVER_DIR }}';
+          ls -la;
+          cd '${{ secrets.FTP_SERVER_DIR }}' || echo 'Directory not found, staying in root';
           put release.zip;
           mkdir -f public;
           put -O public public/finalize.php;
