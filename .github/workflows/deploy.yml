@@ -341,26 +341,25 @@ jobs:
           ?>
           PHP_FINALIZE
 
-      - name: Deploy Zip via FTP
-        uses: SamKirkland/FTP-Deploy-Action@v4.3.5
-        with:
-          server: ${{ secrets.FTP_HOST }}
-          username: ${{ secrets.FTP_USERNAME }}
-          password: ${{ secrets.FTP_PASSWORD }}
-          port: ${{ secrets.FTP_PORT || 21 }}
-          protocol: ${{ secrets.FTP_PROTOCOL || 'ftps' }}
-          local-dir: ./
-          server-dir: ${{ secrets.FTP_SERVER_DIR || '/www/' }}
-          dangerous-clean-slate: false
-          security: loose
-          log-level: verbose
-          exclude: |
-            **
-            !release.zip
-            !public/finalize.php
-            !.env
-            !.htaccess
-            !deploy.sh
+      - name: Install lftp
+        run: sudo apt-get update && sudo apt-get install -y lftp
+
+      - name: Deploy via LFTP
+        run: |
+          lftp -e "
+          set ftp:ssl-allow no;
+          set ftp:use-epsv no;
+          open -u '${{ secrets.FTP_USERNAME }}','${{ secrets.FTP_PASSWORD }}' '${{ secrets.FTP_HOST }}';
+          ls -la;
+          cd '${{ secrets.FTP_SERVER_DIR || '/www/' }}' || echo 'Directory not found, staying in root';
+          put release.zip;
+          put deploy.sh;
+          put .env;
+          mkdir -f public;
+          put -O public public/finalize.php;
+          put -O public public/.htaccess;
+          bye
+          "
 
       - name: Trigger Finalize
         run: |
