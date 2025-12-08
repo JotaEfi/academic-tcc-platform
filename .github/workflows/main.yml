@@ -403,21 +403,16 @@ jobs:
                   # Mudamos para o diretório de staging para facilitar o mirror
                   cd deploy_staging
 
-                  # Comando lftp atualizado:
-                  # - Removemos ftp:use-epsv (inválido)
-                  # - Usamos mirror -R . (diretório atual) para o destino
-                  # - set ftp:ssl-protect-data true é crucial para segurança e estabilidade TLS
                   echo '📂 Onde estou? (PWD):'
                   pwd
 
-                  echo '🚀 Iniciando Mirror para diretório ATUAL (.)'
-                  # Configurações de DEBUG e COMPATIBILIDADE:
-                  # debug 5: Vai mostrar TODO o diálogo FTP para entendermos o erro real
-                  # ftp:ssl-protect-data false: Tenta usar canal de dados não criptografado (resolve muitos problemas de firewall)
-                  # ftp:use-feat false: Desabilita comandos avançados, forçando modo mais simples (evita EPSV se ele for o culpado)
+                  echo '🚀 Iniciando Upload do ZIP e Scripts...'
+                  # Configurações Otimizadas:
+                  # - parallel=4: Tenta enviar arquivos em paralelo (bom para os pequenos)
+                  # - ssl-protect-data false: Performance e Compatibilidade
+                  # - use-feat false: Compatibilidade
 
                   lftp -e "
-                  debug 5
                   set ssl:verify-certificate no
                   set ftp:ssl-allow true
                   set ftp:ssl-force true
@@ -425,9 +420,7 @@ jobs:
                   set ftp:use-feat false
                   open -u ${{ secrets.FTP_USERNAME }},${{ secrets.FTP_PASSWORD }} -p ${{ secrets.FTP_PORT || 21 }} ${{ secrets.FTP_HOST }}
 
-                  list
-
-                  mirror -R -v --parallel=2 . ./
+                  mirror -R -v --parallel=4 . ./
 
                   bye
                   "
