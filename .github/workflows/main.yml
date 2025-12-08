@@ -25,7 +25,7 @@ jobs:
               uses: shivammathur/setup-php@v2
               with:
                   php-version: "8.2"
-                  extensions: mbstring, xml, ctype, json, bcmath, pdo, pdo_pgsql
+                  extensions: mbstring, xml, ctype, json, bcmath, pdo, pdo_pgsql, pdo_sqlite, sqlite3
                   tools: composer:v2
 
             - name: Install PHP dependencies
@@ -70,12 +70,12 @@ jobs:
                   LOG_DEPRECATIONS_CHANNEL=null
                   LOG_LEVEL=error
 
-                  DB_CONNECTION=${{ env.DB_CONNECTION }}
-                  DB_HOST=${{ env.DB_HOST }}
-                  DB_PORT=${{ env.DB_PORT }}
-                  DB_DATABASE=${{ env.DB_DATABASE }}
-                  DB_USERNAME=${{ env.DB_USERNAME }}
-                  DB_PASSWORD=${{ env.DB_PASSWORD }}
+                  DB_CONNECTION=sqlite
+                  DB_HOST=127.0.0.1
+                  DB_PORT=3306
+                  DB_DATABASE=database/database.sqlite
+                  DB_USERNAME=null
+                  DB_PASSWORD=null
 
                   SESSION_DRIVER=file
                   SESSION_LIFETIME=120
