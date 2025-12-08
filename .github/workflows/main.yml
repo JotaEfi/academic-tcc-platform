@@ -371,25 +371,48 @@ jobs:
                   ?>
                   PHP_FINALIZE
 
-            - name: Deploy Zip via FTP
-              uses: SamKirkland/FTP-Deploy-Action@v4.3.5
-              with:
-                  server: ${{ secrets.FTP_HOST }}
-                  username: ${{ secrets.FTP_USERNAME }}
-                  password: ${{ secrets.FTP_PASSWORD }}
-                  port: ${{ secrets.FTP_PORT || 21 }}
-                  protocol: ${{ secrets.FTP_PROTOCOL || 'ftps' }}
-                  local-dir: ./
-                  server-dir: ${{ secrets.FTP_SERVER_DIR }}
-                  dangerous-clean-slate: false
-                  security: loose
-                  log-level: verbose
-                  exclude: |
-                      **
-                      !release.zip
-                      !public/finalize.php
-                      !.env
-                      !.htaccess
+            - name: Deploy via lftp
+              run: |
+                  # 📦 Preparar diretório de staging (Garante upload limpo apenas do necessário)
+                  mkdir -p deploy_staging/public
+
+                  echo "📋 Preparando arquivos para upload..."
+                  cp .env deploy_staging/
+                  cp release.zip deploy_staging/
+
+                  # Copiar .htaccess da raiz se existir
+                  if [ -f ".htaccess" ]; then
+                      cp .htaccess deploy_staging/
+                      echo "✅ Root .htaccess copied"
+                  fi
+
+                  # Copiar .htaccess de public/ se existir
+                  if [ -f "public/.htaccess" ]; then
+                      cp public/.htaccess deploy_staging/public/
+                      echo "✅ Public .htaccess copied"
+                  fi
+
+                  cp public/finalize.php deploy_staging/public/
+
+                  echo "🛠️ Instalando lftp..."
+                  sudo apt-get update -qq
+                  sudo apt-get install -y lftp
+
+                  echo "🚀 Iniciando upload via LFTP..."
+                  # Opções explicadas:
+                  # ssl:verify-certificate no -> Aceitar certificados auto-assinados (security: loose)
+                  # ftp:use-epsv false        -> CORREÇÃO DO ECONNRESET (Força modo passivo antigo)
+                  # mirror -R                 -> Unidirecional (Upload apenas)
+                  lftp -f "
+                  set ssl:verify-certificate no
+                  set ftp:ssl-allow true
+                  set ftp:ssl-force true
+                  set ftp:ssl-protect-data true
+                  set ftp:use-epsv false
+                  open -u ${{ secrets.FTP_USERNAME }},${{ secrets.FTP_PASSWORD }} -p ${{ secrets.FTP_PORT || 21 }} ${{ secrets.FTP_HOST }}
+                  mirror -R -v --parallel=2 ./deploy_staging ${{ secrets.FTP_SERVER_DIR }}
+                  bye
+                  "
 
             - name: Trigger Finalize
               run: |
