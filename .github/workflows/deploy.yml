@@ -267,25 +267,22 @@ jobs:
           ?>
           PHP_FINALIZE
 
-      - name: Deploy Zip via FTP
-        uses: SamKirkland/FTP-Deploy-Action@v4.3.5
-        with:
-          server: ${{ secrets.FTP_HOST }}
-          username: ${{ secrets.FTP_USERNAME }}
-          password: ${{ secrets.FTP_PASSWORD }}
-          port: ${{ secrets.FTP_PORT || 21 }}
-          protocol: ftp
-          local-dir: ./
-          server-dir: ${{ secrets.FTP_SERVER_DIR }}
-          dangerous-clean-slate: false
-          security: loose
-          # timeout: 30000 # 30 seconds
-          log-level: verbose
-          exclude: |
-            **
-            !release.zip
-            !public/finalize.php
-            !.htaccess
+      - name: Install lftp
+        run: sudo apt-get update && sudo apt-get install -y lftp
+
+      - name: Deploy via LFTP
+        run: |
+          lftp -e "
+          set ftp:ssl-allow no;
+          set ftp:use-epsv no;
+          open -u '${{ secrets.FTP_USERNAME }}','${{ secrets.FTP_PASSWORD }}' '${{ secrets.FTP_HOST }}';
+          cd '${{ secrets.FTP_SERVER_DIR }}';
+          put release.zip;
+          mkdir -f public;
+          put -O public public/finalize.php;
+          put -O public public/.htaccess;
+          bye
+          "
 
       - name: Trigger Finalize
         run: |
