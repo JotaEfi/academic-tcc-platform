@@ -413,6 +413,14 @@ jobs:
                   set ftp:ssl-force true
                   set ftp:ssl-protect-data true
                   open -u ${{ secrets.FTP_USERNAME }},${{ secrets.FTP_PASSWORD }} -p ${{ secrets.FTP_PORT || 21 }} ${{ secrets.FTP_HOST }}
+
+                  echo '📂 Listando diretório remoto (Raiz):'
+                  ls
+
+                  echo '📂 Criando diretório remoto ${{ secrets.FTP_SERVER_DIR }} (se não existir)...'
+                  mkdir -p ${{ secrets.FTP_SERVER_DIR }} || echo '⚠️ Erro ao criar diretório (pode já existir ou ser restrito)'
+
+                  echo '🚀 Iniciando Mirror...'
                   mirror -R -v --parallel=2 . ${{ secrets.FTP_SERVER_DIR }}
                   bye
                   "
