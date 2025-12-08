@@ -341,35 +341,41 @@ jobs:
           ?>
           PHP_FINALIZE
 
-      - name: Install lftp
-        run: sudo apt-get update && sudo apt-get install -y lftp
+      - name: Install curl (FTP client)
+        run: sudo apt-get update && sudo apt-get install -y curl
 
-      - name: Deploy via LFTP
+      - name: Deploy via FTP (curl)
         env:
           FTP_USERNAME: ${{ secrets.FTP_USERNAME }}
           FTP_PASSWORD: ${{ secrets.FTP_PASSWORD }}
           FTP_HOST: ${{ secrets.FTP_HOST }}
           FTP_SERVER_DIR: ${{ secrets.FTP_SERVER_DIR }}
+          FTP_PORT: ${{ secrets.FTP_PORT }}
         run: |
-          # Define fallback de diretório via shell (secrets não suportam "||" direto)
+          set -e
           FTP_TARGET_DIR="$FTP_SERVER_DIR"
           if [ -z "$FTP_TARGET_DIR" ]; then FTP_TARGET_DIR="/"; fi
+          PORT_TO_USE="${FTP_PORT:-21}"
 
-          lftp -e "
-          set ftp:ssl-allow no;
-          set ftp:passive-mode on;
-          open -u '$FTP_USERNAME','$FTP_PASSWORD' '$FTP_HOST';
-          ls -la;
-          cd '$FTP_TARGET_DIR' || echo 'Directory not found, staying in root';
-          ls -la;
-          put release.zip;
-          put deploy.sh;
-          put .env;
-          mkdir -f public;
-          put -O public public/finalize.php;
-          put -O public public/.htaccess;
-          bye
-          "
+          echo "🔍 Resolvendo host: $FTP_HOST"
+          getent hosts "$FTP_HOST" || { echo "❌ Host não resolve DNS: $FTP_HOST"; exit 1; }
+
+          BASE_URL="ftp://$FTP_HOST:$PORT_TO_USE$FTP_TARGET_DIR"
+          AUTH="--user $FTP_USERNAME:$FTP_PASSWORD"
+
+          echo "📁 Criando diretório public (se não existir)"
+          curl $AUTH -Q "MKD public" "$BASE_URL" || true
+
+          echo "⬆️  Enviando release.zip, deploy.sh, .env"
+          curl $AUTH --ftp-method nocwd --upload-file release.zip "$BASE_URL/release.zip"
+          curl $AUTH --ftp-method nocwd --upload-file deploy.sh "$BASE_URL/deploy.sh"
+          curl $AUTH --ftp-method nocwd --upload-file .env "$BASE_URL/.env"
+
+          echo "⬆️  Enviando public/finalize.php e public/.htaccess"
+          curl $AUTH --ftp-method nocwd --upload-file public/finalize.php "$BASE_URL/public/finalize.php"
+          curl $AUTH --ftp-method nocwd --upload-file public/.htaccess "$BASE_URL/public/.htaccess"
+
+          echo "✅ Upload via FTP concluído"
 
       - name: Trigger Finalize
         env:
