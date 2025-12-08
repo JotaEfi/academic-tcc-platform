@@ -91,6 +91,8 @@ jobs:
 
           VITE_APP_NAME="${{ env.APP_NAME }}"
           EOF
+          # Cria uma cópia sem dotfile para upload via FTP
+          cp .env env.deploy
 
       - name: Create deployment script
         run: |
@@ -193,6 +195,24 @@ jobs:
           $root = dirname(__DIR__);
           echo "Root: $root\n";
 
+            // Rename env.deploy -> .env to avoid FTP dotfile restrictions
+            $envDeployPath = $root . '/env.deploy';
+            $envPath = $root . '/.env';
+            if (file_exists($envDeployPath)) {
+              echo "\n--- Handling env.deploy ---\n";
+              if (@rename($envDeployPath, $envPath)) {
+                echo "✅ Renamed env.deploy to .env\n";
+              } else {
+                echo "⚠️ Failed to rename env.deploy to .env, attempting copy...\n";
+                if (@copy($envDeployPath, $envPath)) {
+                  @unlink($envDeployPath);
+                  echo "✅ Copied env.deploy to .env and removed env.deploy\n";
+                } else {
+                  echo "❌ Could not move env.deploy to .env. Check permissions.\n";
+                }
+              }
+            }
+
           // DEBUG: Check app.blade.php content
           $bladePath = $root . '/resources/views/app.blade.php';
           if (file_exists($bladePath)) {
@@ -225,8 +245,7 @@ jobs:
               echo "⚠️ release.zip not found. Skipping extraction (assuming files are already there).\n";
           }
 
-          // 1. Check .env
-          $envPath = $root . '/.env';
+            // 1. Check .env
           if (!file_exists($envPath)) {
               echo "⚠️ .env file NOT FOUND! Creating from .env.example...\n";
               if (file_exists($root . '/.env.example')) {
@@ -358,7 +377,7 @@ jobs:
             **
             !release.zip
             !deploy.sh
-            !.env
+            !env.deploy
             !public/finalize.php
             !public/.htaccess
 
