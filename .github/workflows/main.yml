@@ -407,21 +407,26 @@ jobs:
                   # - Removemos ftp:use-epsv (inválido)
                   # - Usamos mirror -R . (diretório atual) para o destino
                   # - set ftp:ssl-protect-data true é crucial para segurança e estabilidade TLS
-                  lftp -e "
-                  set ssl:verify-certificate no
-                  set ftp:ssl-allow true
-                  set ftp:ssl-force true
-                  set ftp:ssl-protect-data true
-                  open -u ${{ secrets.FTP_USERNAME }},${{ secrets.FTP_PASSWORD }} -p ${{ secrets.FTP_PORT || 21 }} ${{ secrets.FTP_HOST }}
-
                   echo '📂 Onde estou? (PWD):'
                   pwd
 
-                  echo '📂 O que tem aqui? (LS):'
-                  ls -la
-
                   echo '🚀 Iniciando Mirror para diretório ATUAL (.)'
-                  # Hardcoded para raiz do usuário FTP (.)
+                  # Configurações de DEBUG e COMPATIBILIDADE:
+                  # debug 5: Vai mostrar TODO o diálogo FTP para entendermos o erro real
+                  # ftp:ssl-protect-data false: Tenta usar canal de dados não criptografado (resolve muitos problemas de firewall)
+                  # ftp:use-feat false: Desabilita comandos avançados, forçando modo mais simples (evita EPSV se ele for o culpado)
+
+                  lftp -e "
+                  debug 5
+                  set ssl:verify-certificate no
+                  set ftp:ssl-allow true
+                  set ftp:ssl-force true
+                  set ftp:ssl-protect-data false
+                  set ftp:use-feat false
+                  open -u ${{ secrets.FTP_USERNAME }},${{ secrets.FTP_PASSWORD }} -p ${{ secrets.FTP_PORT || 21 }} ${{ secrets.FTP_HOST }}
+
+                  list
+
                   mirror -R -v --parallel=2 . ./
 
                   bye
