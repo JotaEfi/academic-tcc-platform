@@ -381,6 +381,45 @@ export default function AdminDashboard({ tccs, professors }: { tccs: any[], prof
             </Card>
           )}
         </div>
+
+        {/* Danger Zone */}
+        <div className="mt-12 bg-red-50 border border-red-200 rounded-lg p-6">
+          <div className="flex items-center justify-between">
+            <div>
+              <h3 className="text-lg font-bold text-red-900">Zona de Perigo</h3>
+              <p className="text-red-700 mt-1">
+                Ações destrutivas que não podem ser desfeitas.
+              </p>
+            </div>
+            <Button
+              variant="destructive"
+              onClick={() => {
+                if (confirm('TEM CERTEZA? Isso apagará TODOS os TCCs, Professores e Avaliações. Apenas o Login Admin será mantido.\n\nEsta ação é irreversível.')) {
+                  if (confirm('Confirmação Final: Deseja realmente ZERAR o banco de dados?')) {
+                    // @ts-ignore
+                    window.location.href = '#'; // Prevent default
+                    // Use inertia form helper if possible or standard submit
+                    // Since we are inside a component, let's use the inertia router manually or a form
+                    // Creating a temporary form submission for simplicity
+                    const form = document.createElement('form');
+                    form.method = 'POST';
+                    form.action = route('admin.reset');
+
+                    // Add CSRF token if needed, but Inertia usually handles it via headers. 
+                    // However, native form submit needs hidden input if not using Inertia router.
+                    // Better to use Inertia Router.
+                    import('@inertiajs/react').then((inertia) => {
+                      inertia.router.post(route('admin.reset'));
+                    });
+                  }
+                }
+              }}
+              className="bg-red-600 hover:bg-red-700 text-white font-bold"
+            >
+              ZERAR BANCO DE DADOS
+            </Button>
+          </div>
+        </div>
       </div>
     </div>
   );

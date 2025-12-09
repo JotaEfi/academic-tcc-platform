@@ -33,6 +33,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::post('/admin/import', [AdminController::class, 'import'])->name('admin.import');
     Route::get('/admin/export', [AdminController::class, 'export'])->name('admin.export');
     Route::get('/admin/evaluated-tccs', [AdminController::class, 'evaluatedTccs'])->name('admin.evaluated_tccs');
+    Route::post('/admin/reset', [AdminController::class, 'resetDatabase'])->name('admin.reset');
 
     // Professor
     Route::get('/professor/dashboard', [ProfessorController::class, 'index'])->name('professor.dashboard');
