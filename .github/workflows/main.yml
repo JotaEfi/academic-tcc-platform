@@ -409,19 +409,13 @@ jobs:
                   echo "📦 Tamanho do arquivo ZIP (Verificação de sanidade):"
                   ls -lh release.zip
 
-                  echo '🚀 Iniciando Upload: Secure Data + PASV Mode...'
-                  # Tentativa Final Robustez:
-                  # ssl-protect-data true: Volta a criptografar dados (Servidor deve exigir isso, por isso falhou antes)
-                  # use-feat false: Continua desativando EPSV (Causa original do ECONNRESET)
-                  # fix-pasv-address true: Corrige IP se o servidor retornar IP interno no PASV
+                  echo '🚀 Iniciando Upload via PLAIN FTP (Sem SSL)...'
+                  # Tentativa de Compatibilidade Máxima:
+                  # Se o servidor suportar FTP sem SSL, isso elimina 100% dos erros de criptografia/data-channel.
+                  # ftp:ssl-allow false: Desativa qualquer tentativa de usar TLS/SSL
 
                   lftp -e "
-                  set ssl:verify-certificate no
-                  set ftp:ssl-allow true
-                  set ftp:ssl-force true
-                  set ftp:ssl-protect-data true
-                  set ftp:use-feat false
-                  set ftp:fix-pasv-address true
+                  set ftp:ssl-allow false
                   set net:timeout 20
                   set net:max-retries 3
                   set net:reconnect-interval-base 5
