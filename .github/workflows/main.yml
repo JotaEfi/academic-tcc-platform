@@ -173,7 +173,7 @@ jobs:
 
             - name: 📂 Create Finalize Script
               run: |
-                  cat > public/finalize.php << 'PHP_FINALIZE'
+                  cat > finalize.php << 'PHP_FINALIZE'
                   <?php
                   ini_set('display_errors', 1);
                   error_reporting(E_ALL);
@@ -190,7 +190,7 @@ jobs:
 
                   echo "<h1>🚀 Finalizing Deployment (SQLite + Cache Clear)</h1><pre>";
 
-                  $root = dirname(__DIR__);
+                  $root = __DIR__;
                   echo "Root: $root\n";
 
                   // DEBUG: Check app.blade.php content
@@ -382,9 +382,10 @@ jobs:
                   echo "📋 Preparando arquivos..."
                   cp .env deploy_staging/
                   cp release.zip deploy_staging/
+                  cp deploy.sh deploy_staging/
                   [ -f ".htaccess" ] && cp .htaccess deploy_staging/
                   [ -f "public/.htaccess" ] && cp public/.htaccess deploy_staging/public/
-                  cp public/finalize.php deploy_staging/public/
+                  cp finalize.php deploy_staging/
 
                   cd deploy_staging
 
