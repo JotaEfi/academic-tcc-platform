@@ -415,29 +415,39 @@ class AdminController extends Controller
         // Protect against accidental execution (double check if needed, but UI confirmation handles first layer)
         // Additional auth middleware handles the second layer.
         
-        \Illuminate\Support\Facades\Schema::disableForeignKeyConstraints();
-
         try {
+            // Explicitly for SQLite
+            if (\DB::getDriverName() == 'sqlite') {
+                \DB::statement('PRAGMA foreign_keys = OFF;');
+            }
+            \Illuminate\Support\Facades\Schema::disableForeignKeyConstraints();
+
             \DB::transaction(function () {
                 // 1. Delete Evaluations
-                \App\Models\Evaluation::truncate();
+                \App\Models\Evaluation::query()->delete();
                 
                 // 2. Clear relationships
-                \DB::table('tcc_evaluator')->truncate();
-                \DB::table('project_user')->truncate();
+                \DB::table('tcc_evaluator')->delete();
+                \DB::table('project_user')->delete();
                 
                 // 3. Delete TCCs and Projects
-                \App\Models\Tcc::truncate();
-                \App\Models\Project::truncate();
+                \App\Models\Tcc::query()->delete();
+                \App\Models\Project::query()->delete();
                 
                 // 4. Delete Users (Except Admin)
-                // Use delete() instead of truncate() to filter by where clause
                 \App\Models\User::where('role', '!=', 'admin')->delete();
-                
-                // Optional: Reset auto-increment for users if wanted, but risky with Admin having ID 1.
-                // We keep it simple.
+
+                // Reset Auto Increment if possible (SQLite specific)
+                if (\DB::getDriverName() == 'sqlite') {
+                    \DB::statement("DELETE FROM sqlite_sequence WHERE name IN ('evaluations', 'tccs', 'projects', 'users')");
+                }
             });
+        } catch (\Throwable $e) {
+            return redirect()->back()->withErrors(['error' => 'Erro ao resetar: ' . $e->getMessage()]);
         } finally {
+             if (\DB::getDriverName() == 'sqlite') {
+                \DB::statement('PRAGMA foreign_keys = ON;');
+            }
             \Illuminate\Support\Facades\Schema::enableForeignKeyConstraints();
         }
 
