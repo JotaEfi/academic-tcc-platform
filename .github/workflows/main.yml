@@ -400,20 +400,18 @@ jobs:
                   echo "📦 Tamanho do arquivo ZIP:"
                   ls -lh release.zip
 
-                  echo '🚀 DEBUG: Listando conteúdo da raiz FTP...'
-                  curl -v --user "${{ secrets.FTP_USERNAME }}:${{ secrets.FTP_PASSWORD }}" \
-                       "ftp://${{ secrets.FTP_HOST }}/" || echo "⚠️ Falha ao listar raiz"
+                  echo '🚀 Iniciando Upload para /www/ via CURL (PLAIN FTP - SEM SSL)...'
 
-                  echo '🚀 DEBUG: Tentando Upload APENAS do release.zip (Teste de Permissão)...'
                   cd deploy_staging
 
-                  # Teste isolado com arquivo normal (sem ser dotfile)
-                  curl -v --ftp-create-dirs \
-                       -T "release.zip" \
-                       --user "${{ secrets.FTP_USERNAME }}:${{ secrets.FTP_PASSWORD }}" \
-                       "ftp://${{ secrets.FTP_HOST }}/release.zip" || { echo "❌ Falha ao enviar release.zip - PROVÁVEL PROBLEMA DE PERMISSÃO NA RAIZ"; exit 1; }
-
-                  echo "✅ Upload do release.zip funcionou! O problema era o .env (dotfile)."
+                  # Encontra todos os arquivos e faz upload um por um para a pasta /www/
+                  find . -type f | cut -c 3- | while read file; do
+                      echo "📤 Enviando: $file -> /www/$file"
+                      curl -v --ftp-create-dirs \
+                           -T "$file" \
+                           --user "${{ secrets.FTP_USERNAME }}:${{ secrets.FTP_PASSWORD }}" \
+                           "ftp://${{ secrets.FTP_HOST }}/www/$file" || { echo "❌ Falha ao enviar $file"; exit 1; }
+                  done
             - name: Trigger Finalize
               run: |
                   echo "Triggering finalize..."
