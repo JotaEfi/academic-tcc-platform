@@ -415,22 +415,31 @@ class AdminController extends Controller
         // Protect against accidental execution (double check if needed, but UI confirmation handles first layer)
         // Additional auth middleware handles the second layer.
         
-        \DB::transaction(function () {
-            // 1. Delete Evaluations
-            \App\Models\Evaluation::truncate();
-            
-            // 2. Clear relationships
-            \DB::table('tcc_evaluator')->truncate();
-            \DB::table('project_user')->truncate();
-            
-            // 3. Delete TCCs and Projects
-            \App\Models\Tcc::truncate();
-            \App\Models\Project::truncate();
-            
-            // 4. Delete Users (Except Admin)
-            // Assuming Admin has ID 1 or role 'admin'. Safer to check ID or role.
-            \App\Models\User::where('role', '!=', 'admin')->delete();
-        });
+        \Illuminate\Support\Facades\Schema::disableForeignKeyConstraints();
+
+        try {
+            \DB::transaction(function () {
+                // 1. Delete Evaluations
+                \App\Models\Evaluation::truncate();
+                
+                // 2. Clear relationships
+                \DB::table('tcc_evaluator')->truncate();
+                \DB::table('project_user')->truncate();
+                
+                // 3. Delete TCCs and Projects
+                \App\Models\Tcc::truncate();
+                \App\Models\Project::truncate();
+                
+                // 4. Delete Users (Except Admin)
+                // Use delete() instead of truncate() to filter by where clause
+                \App\Models\User::where('role', '!=', 'admin')->delete();
+                
+                // Optional: Reset auto-increment for users if wanted, but risky with Admin having ID 1.
+                // We keep it simple.
+            });
+        } finally {
+            \Illuminate\Support\Facades\Schema::enableForeignKeyConstraints();
+        }
 
         return redirect()->route('admin.dashboard')->with('success', 'Banco de dados resetado com sucesso! Apenas o usuário Admin foi mantido.');
     }
