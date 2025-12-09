@@ -360,7 +360,36 @@ jobs:
                       }
                   }
 
-                  // 7. Run Commands
+                  // 7. Create Admin User
+                  echo "\n--- Checking Admin User ---\n";
+                  use App\Models\User;
+                  use Illuminate\Support\Facades\Hash;
+                  use Illuminate\Support\Facades\DB;
+
+                  try {
+                      $adminEmail = 'admin@example.com';
+                      $adminUser = User::where('email', $adminEmail)->first();
+
+                      if (!$adminUser) {
+                          echo "⚠️ Admin user not found. Creating it now...\n";
+                          DB::transaction(function () use ($adminEmail) {
+                              User::create([
+                                  'name' => 'Admin User',
+                                  'email' => $adminEmail,
+                                  'password' => Hash::make('password'),
+                                  'role' => 'admin',
+                                  'email_verified_at' => now(),
+                              ]);
+                          });
+                          echo "✅ Admin User ($adminEmail) created successfully.\n";
+                      } else {
+                          echo "✅ Admin User ($adminEmail) already exists.\n";
+                      }
+                  } catch (Throwable $e) {
+                      echo "❌ Failed to create/check admin user: " . $e->getMessage() . "\n";
+                  }
+
+                  // 8. Run Commands
                   runCommand('optimize:clear', $kernel);
                   runCommand('migrate --force', $kernel);
                   runCommand('config:cache', $kernel);
