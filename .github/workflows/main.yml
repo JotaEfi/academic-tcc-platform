@@ -371,52 +371,52 @@ jobs:
                   ?>
                   PHP_FINALIZE
 
-            - name: Deploy via lftp
+            - name: Deploy via Smart LFTP
               run: |
-                  # 📦 Preparar diretório de staging (Garante upload limpo apenas do necessário)
+                  # �️ Instalar Client FTP (LFTP)
+                  # Reinstalando porque o CURL falhou na navegação de diretórios
+                  sudo apt-get update -qq
+                  sudo apt-get install -y lftp
+
+                  # 📦 Preparar diretório de staging
                   mkdir -p deploy_staging/public
 
-                  echo "📋 Preparando arquivos para upload..."
+                  echo "📋 Preparando arquivos..."
                   cp .env deploy_staging/
                   cp release.zip deploy_staging/
-
-                  # Copiar .htaccess da raiz se existir
-                  if [ -f ".htaccess" ]; then
-                      cp .htaccess deploy_staging/
-                      echo "✅ Root .htaccess copied"
-                  fi
-
-                  # Copiar .htaccess de public/ se existir
-                  if [ -f "public/.htaccess" ]; then
-                      cp public/.htaccess deploy_staging/public/
-                      echo "✅ Public .htaccess copied"
-                  fi
-
+                  [ -f ".htaccess" ] && cp .htaccess deploy_staging/
+                  [ -f "public/.htaccess" ] && cp public/.htaccess deploy_staging/public/
                   cp public/finalize.php deploy_staging/public/
-
-                  echo '📂 Onde estou? (PWD):'
-                  pwd
-
-                  echo "📦 Tamanho do arquivo ZIP:"
-                  ls -lh release.zip
-
-                  echo '🚀 DEBUG: Listando arquivos na RAIZ do FTP para identificar a pasta correta...'
-                  curl -v --list-only --user "${{ secrets.FTP_USERNAME }}:${{ secrets.FTP_PASSWORD }}" \
-                       "ftp://${{ secrets.FTP_HOST }}/" || echo "⚠️ Não foi possível listar a raiz."
-
-                  echo '🚀 Iniciando Upload para /public_html/ via CURL (PLAIN FTP - SEM SSL)...'
-                  # Tentativa em public_html (Padrão cPanel/Apache comum)
 
                   cd deploy_staging
 
-                  # Encontra todos os arquivos e faz upload um por um para a pasta /public_html/
-                  find . -type f | cut -c 3- | while read file; do
-                      echo "📤 Enviando: $file -> /public_html/$file"
-                      curl -v --ftp-create-dirs \
-                           -T "$file" \
-                           --user "${{ secrets.FTP_USERNAME }}:${{ secrets.FTP_PASSWORD }}" \
-                           "ftp://${{ secrets.FTP_HOST }}/public_html/$file" || { echo "❌ Falha ao enviar $file"; exit 1; }
-                  done
+                  echo '🚀 Iniciando Deploy Inteligente (Auto-Discover)...'
+                  # Tenta encontrar a pasta correta automaticamente
+                  # Usa FTP Simples (Sem SSL) para evitar erros de firewall
+
+                  lftp -e "
+                  debug 5
+                  set ftp:ssl-allow false
+                  set net:timeout 20
+                  set net:max-retries 2
+                  set net:reconnect-interval-base 3
+
+                  open -u ${{ secrets.FTP_USERNAME }},${{ secrets.FTP_PASSWORD }} -p ${{ secrets.FTP_PORT || 21 }} ${{ secrets.FTP_HOST }}
+
+                  echo '� Listando raiz (Debug)...'
+                  ls -la || echo '❌ Falha ao listar raiz (Ignorando)...'
+
+                  echo '🔍 Tentando entrar na pasta pública (public_html, www, etc)...'
+                  cd public_html || cd www || cd htdocs || cd httpdocs || echo '⚠️ Nenhuma pasta padrão encontrada. Tentando na raiz...'
+
+                  echo '� Destino Final:'
+                  pwd
+
+                  echo '🚀 Enviando arquivos...'
+                  mirror -R -v --parallel=1 . ./
+
+                  bye
+                  "
             - name: Trigger Finalize
               run: |
                   echo "Triggering finalize..."
