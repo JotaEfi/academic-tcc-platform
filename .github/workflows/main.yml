@@ -360,7 +360,11 @@ jobs:
                       }
                   }
 
-                  // 7. Create Admin User
+                  // 7. Run Commands (Migrations FIRST)
+                  runCommand('optimize:clear', $kernel);
+                  runCommand('migrate --force', $kernel);
+
+                  // 8. Create Admin User (After Migrations)
                   echo "\n--- Checking Admin User ---\n";
                   use App\Models\User;
                   use Illuminate\Support\Facades\Hash;
@@ -389,9 +393,7 @@ jobs:
                       echo "❌ Failed to create/check admin user: " . $e->getMessage() . "\n";
                   }
 
-                  // 8. Run Commands
-                  runCommand('optimize:clear', $kernel);
-                  runCommand('migrate --force', $kernel);
+                  // 9. Final Caches
                   runCommand('config:cache', $kernel);
                   runCommand('route:cache', $kernel);
                   runCommand('view:cache', $kernel);
