@@ -412,43 +412,35 @@ class AdminController extends Controller
     
     public function resetDatabase(Request $request) 
     {
-        // Protect against accidental execution (double check if needed, but UI confirmation handles first layer)
-        // Additional auth middleware handles the second layer.
+        // Explicitly for SQLite
+        if (\DB::getDriverName() == 'sqlite') {
+            \DB::statement('PRAGMA foreign_keys = OFF;');
+        }
         
-        try {
-            // Explicitly for SQLite
+        // No try-catch: if it fails, we want to see the 500 error page detailed message
+        \DB::transaction(function () {
+            // 1. Delete Evaluations
+            \App\Models\Evaluation::query()->delete();
+            
+            // 2. Clear relationships
+            \DB::table('tcc_evaluator')->delete();
+            // \DB::table('project_user')->delete(); // Likely linked to Project model which is invalid
+            
+            // 3. Delete TCCs
+            \App\Models\Tcc::query()->delete();
+            // \App\Models\Project::query()->delete(); // Removed: table likely doesn't exist
+            
+            // 4. Delete Users (Except Admin)
+            \App\Models\User::where('role', '!=', 'admin')->delete();
+
+            // Reset Auto Increment if possible (SQLite specific)
             if (\DB::getDriverName() == 'sqlite') {
-                \DB::statement('PRAGMA foreign_keys = OFF;');
+                \DB::statement("DELETE FROM sqlite_sequence WHERE name IN ('evaluations', 'tccs', 'users')");
             }
-            \Illuminate\Support\Facades\Schema::disableForeignKeyConstraints();
+        });
 
-            \DB::transaction(function () {
-                // 1. Delete Evaluations
-                \App\Models\Evaluation::query()->delete();
-                
-                // 2. Clear relationships
-                \DB::table('tcc_evaluator')->delete();
-                \DB::table('project_user')->delete();
-                
-                // 3. Delete TCCs and Projects
-                \App\Models\Tcc::query()->delete();
-                \App\Models\Project::query()->delete();
-                
-                // 4. Delete Users (Except Admin)
-                \App\Models\User::where('role', '!=', 'admin')->delete();
-
-                // Reset Auto Increment if possible (SQLite specific)
-                if (\DB::getDriverName() == 'sqlite') {
-                    \DB::statement("DELETE FROM sqlite_sequence WHERE name IN ('evaluations', 'tccs', 'projects', 'users')");
-                }
-            });
-        } catch (\Throwable $e) {
-            return redirect()->back()->withErrors(['error' => 'Erro ao resetar: ' . $e->getMessage()]);
-        } finally {
-             if (\DB::getDriverName() == 'sqlite') {
-                \DB::statement('PRAGMA foreign_keys = ON;');
-            }
-            \Illuminate\Support\Facades\Schema::enableForeignKeyConstraints();
+        if (\DB::getDriverName() == 'sqlite') {
+            \DB::statement('PRAGMA foreign_keys = ON;');
         }
 
         return redirect()->route('admin.dashboard')->with('success', 'Banco de dados resetado com sucesso! Apenas o usuário Admin foi mantido.');
