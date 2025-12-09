@@ -406,11 +406,14 @@ jobs:
                   echo '📂 Onde estou? (PWD):'
                   pwd
 
-                  echo '🚀 Iniciando Upload do ZIP e Scripts...'
-                  # Configurações Otimizadas:
-                  # - parallel=4: Tenta enviar arquivos em paralelo (bom para os pequenos)
-                  # - ssl-protect-data false: Performance e Compatibilidade
-                  # - use-feat false: Compatibilidade
+                  echo "📦 Tamanho do arquivo ZIP (Verificação de sanidade):"
+                  ls -lh release.zip
+
+                  echo '🚀 Iniciando Upload Seguro (Sequencial + Timeouts)...'
+                  # Configurações de ESTABILIDADE Máxima:
+                  # - parallel=1: Envia um arquivo por vez (evita bloqueio no servidor)
+                  # - net:timeout 20: Falha rápido se travar (não fica horas esperando)
+                  # - net:reconnect-interval-base 5: Tenta reconectar rápido
 
                   lftp -e "
                   set ssl:verify-certificate no
@@ -418,9 +421,13 @@ jobs:
                   set ftp:ssl-force true
                   set ftp:ssl-protect-data false
                   set ftp:use-feat false
+                  set net:timeout 20
+                  set net:max-retries 10
+                  set net:reconnect-interval-base 5
+
                   open -u ${{ secrets.FTP_USERNAME }},${{ secrets.FTP_PASSWORD }} -p ${{ secrets.FTP_PORT || 21 }} ${{ secrets.FTP_HOST }}
 
-                  mirror -R -v --parallel=4 . ./
+                  mirror -R -v --parallel=1 . ./
 
                   bye
                   "
