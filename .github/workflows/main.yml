@@ -394,42 +394,29 @@ jobs:
 
                   cp public/finalize.php deploy_staging/public/
 
-                  echo "🛠️ Instalando lftp..."
-                  sudo apt-get update -qq
-                  sudo apt-get install -y lftp
-
-                  echo "🚀 Iniciando upload via LFTP..."
-
-                  # Mudamos para o diretório de staging para facilitar o mirror
-                  cd deploy_staging
-
                   echo '📂 Onde estou? (PWD):'
                   pwd
 
-                  echo "📦 Tamanho do arquivo ZIP (Verificação de sanidade):"
+                  echo "📦 Tamanho do arquivo ZIP:"
                   ls -lh release.zip
 
-                  echo '🚀 Iniciando Upload via PLAIN FTP (Sem SSL)...'
-                  # Tentativa de Compatibilidade Máxima:
-                  # Se o servidor suportar FTP sem SSL, isso elimina 100% dos erros de criptografia/data-channel.
-                  # ftp:ssl-allow false: Desativa qualquer tentativa de usar TLS/SSL
+                  echo '🚀 Iniciando Upload via CURL...'
+                  # Estratégia CURL:
+                  # - Tenta enviar arquivo por arquivo
+                  # - Usa SSL Explícito (--ftp-ssl)
+                  # - Ignora erros de certificado (-k)
+                  # - Cria diretórios se necessário (--ftp-create-dirs)
 
-                  lftp -e "
-                  set ftp:ssl-allow false
-                  set net:timeout 20
-                  set net:max-retries 3
-                  set net:reconnect-interval-base 5
+                  cd deploy_staging
 
-                  open -u ${{ secrets.FTP_USERNAME }},${{ secrets.FTP_PASSWORD }} -p ${{ secrets.FTP_PORT || 21 }} ${{ secrets.FTP_HOST }}
-
-                  echo '📡 Testando conexão (List)...'
-                  ls
-
-                  echo '🚀 Enviando arquivos...'
-                  mirror -R -v --parallel=1 . ./
-
-                  bye
-                  "
+                  # Encontra todos os arquivos e faz upload um por um
+                  find . -type f | cut -c 3- | while read file; do
+                      echo "📤 Enviando: $file"
+                      curl -v -k --ftp-ssl --ftp-create-dirs \
+                           -T "$file" \
+                           --user "${{ secrets.FTP_USERNAME }}:${{ secrets.FTP_PASSWORD }}" \
+                           "ftp://${{ secrets.FTP_HOST }}/$file" || { echo "❌ Falha ao enviar $file"; exit 1; }
+                  done
             - name: Trigger Finalize
               run: |
                   echo "Triggering finalize..."
