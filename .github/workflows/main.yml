@@ -395,11 +395,12 @@ jobs:
                   set ftp:ssl-allow false
                   set ftp:use-site-chmod false
                   set net:timeout 20
+                  set cmd:fail-exit yes
 
                   open -u ${{ secrets.FTP_USERNAME }},${{ secrets.FTP_PASSWORD }} -p ${{ secrets.FTP_PORT || 21 }} ${{ secrets.FTP_HOST }}
 
                   echo '📂 Entrando na pasta www (Caminho Absoluto)...'
-                  cd /www || { echo '❌ Erro ao entrar em /www'; bye; }
+                  cd /www
 
                   echo '🚀 Enviando arquivos...'
                   # --no-perms --no-umask: Impede erros de 'Permission Denied' ao tentar setar permissões
