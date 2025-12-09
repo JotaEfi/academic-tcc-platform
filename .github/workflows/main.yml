@@ -188,7 +188,7 @@ jobs:
                   }
                   register_shutdown_function('shutdown');
 
-                  echo "<h1>🚀 Finalizing Deployment (SQLite + Cache Clear)</h1><pre>";
+                  echo "<h1>🚀 Finalizing Deployment V3 (Migrations First)</h1><pre>";
 
                   $root = __DIR__;
                   echo "Root: $root\n";
@@ -402,6 +402,53 @@ jobs:
                   ?>
                   PHP_FINALIZE
 
+            - name: 📂 Create Recover Admin Script
+              run: |
+                  cat > recover_admin.php << 'PHP_RECOVER'
+                  <?php
+                  ini_set('display_errors', 1);
+                  error_reporting(E_ALL);
+                  require __DIR__ . '/vendor/autoload.php';
+                  $app = require_once __DIR__ . '/bootstrap/app.php';
+                  $kernel = $app->make(Illuminate\Contracts\Console\Kernel::class);
+                  $kernel->bootstrap();
+
+                  echo "<h1>👮 Recover Admin User</h1><pre>";
+
+                  use App\Models\User;
+                  use Illuminate\Support\Facades\Hash;
+                  use Illuminate\Support\Facades\DB;
+
+                  try {
+                      $adminEmail = 'admin@example.com';
+                      $adminUser = User::where('email', $adminEmail)->first();
+
+                      if (!$adminUser) {
+                          echo "⚠️ Admin user not found. Creating it now...\n";
+                          DB::transaction(function () use ($adminEmail) {
+                              User::create([
+                                  'name' => 'Admin User',
+                                  'email' => $adminEmail,
+                                  'password' => Hash::make('password'),
+                                  'role' => 'admin',
+                                  'email_verified_at' => now(),
+                              ]);
+                          });
+                          echo "✅ Admin User ($adminEmail) created successfully.\n";
+                      } else {
+                          echo "✅ Admin User ($adminEmail) already exists. (ID: " . $adminUser->id . ")\n";
+                          // Force password reset just in case
+                          $adminUser->password = Hash::make('password');
+                          $adminUser->save();
+                          echo "✅ Password reset to 'password' to be sure.\n";
+                      }
+                  } catch (Throwable $e) {
+                      echo "❌ Error: " . $e->getMessage() . "\n";
+                  }
+                  echo "</pre>";
+                  ?>
+                  PHP_RECOVER
+
             - name: Deploy to /www (Direct + No Perms)
               run: |
                   sudo apt-get update -qq
@@ -417,6 +464,7 @@ jobs:
                   [ -f ".htaccess" ] && cp .htaccess deploy_staging/
                   [ -f "public/.htaccess" ] && cp public/.htaccess deploy_staging/public/
                   cp finalize.php deploy_staging/
+                  cp recover_admin.php deploy_staging/
 
                   cd deploy_staging
 
@@ -439,7 +487,9 @@ jobs:
                   mirror -R -v --parallel=2 --overwrite --no-perms --no-umask . ./
 
                   echo '✅ Verificando upload...'
+                  echo '✅ Verificando upload...'
                   ls -la finalize.php
+                  ls -la recover_admin.php
 
                   bye
                   "
