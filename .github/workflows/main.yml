@@ -371,52 +371,48 @@ jobs:
                   ?>
                   PHP_FINALIZE
 
-            - name: Deploy via Smart LFTP
+            - name: Runs FTP Diagnostics (Fixing Permissions)
               run: |
-                  # �️ Instalar Client FTP (LFTP)
-                  # Reinstalando porque o CURL falhou na navegação de diretórios
                   sudo apt-get update -qq
                   sudo apt-get install -y lftp
 
-                  # 📦 Preparar diretório de staging
-                  mkdir -p deploy_staging/public
+                  echo "📦 Criando arquivo de teste..."
+                  touch test_upload.txt
+                  echo "test" > test_upload.txt
 
-                  echo "📋 Preparando arquivos..."
-                  cp .env deploy_staging/
-                  cp release.zip deploy_staging/
-                  [ -f ".htaccess" ] && cp .htaccess deploy_staging/
-                  [ -f "public/.htaccess" ] && cp public/.htaccess deploy_staging/public/
-                  cp public/finalize.php deploy_staging/public/
-
-                  cd deploy_staging
-
-                  echo '🚀 Iniciando Deploy Inteligente (Auto-Discover)...'
-                  # Tenta encontrar a pasta correta automaticamente
-                  # Usa FTP Simples (Sem SSL) para evitar erros de firewall
+                  echo '🚀 Iniciando Diagnóstico Completo de FTP...'
+                  # Objetivos:
+                  # 1. Listar arquivos da raiz (para saber onde estamos)
+                  # 2. Testar navegação absoluta (/www, /public_html)
+                  # 3. Testar escrita (upload simples)
 
                   lftp -e "
                   debug 5
                   set ftp:ssl-allow false
                   set net:timeout 20
-                  set net:max-retries 2
-                  set net:reconnect-interval-base 3
 
                   open -u ${{ secrets.FTP_USERNAME }},${{ secrets.FTP_PASSWORD }} -p ${{ secrets.FTP_PORT || 21 }} ${{ secrets.FTP_HOST }}
 
-                  echo '� Listando raiz (Debug)...'
-                  ls -la || echo '❌ Falha ao listar raiz (Ignorando)...'
+                  echo '----------------------------------------'
+                  echo '🔍 TENTATIVA 1: Listagem da Raiz'
+                  cls -1 > root_files.txt
+                  cat root_files.txt
+                  echo '----------------------------------------'
+                                    
+                  echo '🔍 TENTATIVA 2: Navegação Absoluta (Teste de /www)'
+                  cd /www && echo '✅ Entrou em /www' || echo '❌ Falha ao entrar em /www'
 
-                  echo '🔍 Tentando entrar na pasta pública (public_html, www, etc)...'
-                  cd public_html || cd www || cd htdocs || cd httpdocs || echo '⚠️ Nenhuma pasta padrão encontrada. Tentando na raiz...'
+                  echo '🔍 TENTATIVA 3: Navegação Absoluta (Teste de /public_html)'
+                  cd /public_html && echo '✅ Entrou em /public_html' || echo '❌ Falha ao entrar em /public_html'
 
-                  echo '� Destino Final:'
-                  pwd
-
-                  echo '🚀 Enviando arquivos...'
-                  mirror -R -v --parallel=1 . ./
+                  echo '🔍 TENTATIVA 4: Upload de Teste na Raiz'
+                  put test_upload.txt -o test_upload.txt || echo '❌ Falha de escrita na raiz'
 
                   bye
                   "
+
+                  echo "📄 Conteúdo da listagem remota (root_files.txt):"
+                  [ -f root_files.txt ] && cat root_files.txt || echo "⚠️ Arquivo de listagem vazio ou não gerado."
             - name: Trigger Finalize
               run: |
                   echo "Triggering finalize..."
