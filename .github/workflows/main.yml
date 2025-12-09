@@ -398,8 +398,8 @@ jobs:
 
                   open -u ${{ secrets.FTP_USERNAME }},${{ secrets.FTP_PASSWORD }} -p ${{ secrets.FTP_PORT || 21 }} ${{ secrets.FTP_HOST }}
 
-                  echo '📂 Entrando na pasta www (Modo Relativo)...'
-                  cd www || { echo '❌ Erro ao entrar em www'; bye; }
+                  echo '📂 Entrando na pasta www (Caminho Absoluto)...'
+                  cd /www || { echo '❌ Erro ao entrar em /www'; bye; }
 
                   echo '🚀 Enviando arquivos...'
                   # --no-perms --no-umask: Impede erros de 'Permission Denied' ao tentar setar permissões
