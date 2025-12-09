@@ -409,29 +409,33 @@ jobs:
                   echo "📦 Tamanho do arquivo ZIP (Verificação de sanidade):"
                   ls -lh release.zip
 
-                  echo '🚀 Iniciando Upload Seguro (Sequencial + Timeouts)...'
-                  # Configurações de ESTABILIDADE Máxima:
-                  # - parallel=1: Envia um arquivo por vez (evita bloqueio no servidor)
-                  # - net:timeout 20: Falha rápido se travar (não fica horas esperando)
-                  # - net:reconnect-interval-base 5: Tenta reconectar rápido
+                  echo '🚀 Iniciando Upload: Secure Data + PASV Mode...'
+                  # Tentativa Final Robustez:
+                  # ssl-protect-data true: Volta a criptografar dados (Servidor deve exigir isso, por isso falhou antes)
+                  # use-feat false: Continua desativando EPSV (Causa original do ECONNRESET)
+                  # fix-pasv-address true: Corrige IP se o servidor retornar IP interno no PASV
 
                   lftp -e "
                   set ssl:verify-certificate no
                   set ftp:ssl-allow true
                   set ftp:ssl-force true
-                  set ftp:ssl-protect-data false
+                  set ftp:ssl-protect-data true
                   set ftp:use-feat false
+                  set ftp:fix-pasv-address true
                   set net:timeout 20
-                  set net:max-retries 10
+                  set net:max-retries 3
                   set net:reconnect-interval-base 5
 
                   open -u ${{ secrets.FTP_USERNAME }},${{ secrets.FTP_PASSWORD }} -p ${{ secrets.FTP_PORT || 21 }} ${{ secrets.FTP_HOST }}
 
+                  echo '📡 Testando conexão (List)...'
+                  ls
+
+                  echo '🚀 Enviando arquivos...'
                   mirror -R -v --parallel=1 . ./
 
                   bye
                   "
-
             - name: Trigger Finalize
               run: |
                   echo "Triggering finalize..."
