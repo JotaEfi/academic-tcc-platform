@@ -371,48 +371,45 @@ jobs:
                   ?>
                   PHP_FINALIZE
 
-            - name: Runs FTP Diagnostics (Fixing Permissions)
+            - name: Deploy to /www (Direct + No Perms)
               run: |
                   sudo apt-get update -qq
                   sudo apt-get install -y lftp
 
-                  echo "📦 Criando arquivo de teste..."
-                  touch test_upload.txt
-                  echo "test" > test_upload.txt
+                  # 📦 Preparar diretório de staging
+                  mkdir -p deploy_staging/public
 
-                  echo '🚀 Iniciando Diagnóstico Completo de FTP...'
-                  # Objetivos:
-                  # 1. Listar arquivos da raiz (para saber onde estamos)
-                  # 2. Testar navegação absoluta (/www, /public_html)
-                  # 3. Testar escrita (upload simples)
+                  echo "📋 Preparando arquivos..."
+                  cp .env deploy_staging/
+                  cp release.zip deploy_staging/
+                  [ -f ".htaccess" ] && cp .htaccess deploy_staging/
+                  [ -f "public/.htaccess" ] && cp public/.htaccess deploy_staging/public/
+                  cp public/finalize.php deploy_staging/public/
+
+                  cd deploy_staging
+
+                  echo '🚀 Iniciando Deploy Oficial para /www/ ...'
 
                   lftp -e "
                   debug 5
                   set ftp:ssl-allow false
+                  set ftp:use-site-chmod false
                   set net:timeout 20
 
                   open -u ${{ secrets.FTP_USERNAME }},${{ secrets.FTP_PASSWORD }} -p ${{ secrets.FTP_PORT || 21 }} ${{ secrets.FTP_HOST }}
 
-                  echo '----------------------------------------'
-                  echo '🔍 TENTATIVA 1: Listagem da Raiz'
-                  cls -1 > root_files.txt
-                  cat root_files.txt
-                  echo '----------------------------------------'
-                                    
-                  echo '🔍 TENTATIVA 2: Navegação Absoluta (Teste de /www)'
-                  cd /www && echo '✅ Entrou em /www' || echo '❌ Falha ao entrar em /www'
+                  echo '📂 Entrando na pasta www (Modo Relativo)...'
+                  cd www || { echo '❌ Erro ao entrar em www'; bye; }
 
-                  echo '🔍 TENTATIVA 3: Navegação Absoluta (Teste de /public_html)'
-                  cd /public_html && echo '✅ Entrou em /public_html' || echo '❌ Falha ao entrar em /public_html'
+                  echo '🚀 Enviando arquivos...'
+                  # --no-perms --no-umask: Impede erros de 'Permission Denied' ao tentar setar permissões
+                  mirror -R -v --parallel=2 --overwrite --no-perms --no-umask . ./
 
-                  echo '🔍 TENTATIVA 4: Upload de Teste na Raiz'
-                  put test_upload.txt -o test_upload.txt || echo '❌ Falha de escrita na raiz'
+                  echo '✅ Verificando upload...'
+                  ls -la finalize.php
 
                   bye
                   "
-
-                  echo "📄 Conteúdo da listagem remota (root_files.txt):"
-                  [ -f root_files.txt ] && cat root_files.txt || echo "⚠️ Arquivo de listagem vazio ou não gerado."
             - name: Trigger Finalize
               run: |
                   echo "Triggering finalize..."
