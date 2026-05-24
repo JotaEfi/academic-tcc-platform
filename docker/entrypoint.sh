@@ -1,9 +1,15 @@
 #!/bin/sh
 set -e
 
-# Wait for database to be ready (simple wait)
-echo "Waiting for database..."
-sleep 5
+if [ "$DB_CONNECTION" = "sqlite" ]; then
+    echo "Using SQLite database..."
+    mkdir -p /var/www/html/database
+    touch /var/www/html/database/database.sqlite
+    chmod 666 /var/www/html/database/database.sqlite
+else
+    echo "Waiting for database..."
+    sleep 5
+fi
 
 # Run migrations
 echo "Running migrations..."

@@ -9,43 +9,29 @@ services:
     ports:
       - "8000:80"
     environment:
-      DB_CONNECTION: pgsql
-      DB_HOST: db
-      DB_PORT: 5432
-      DB_DATABASE: ${DB_DATABASE}
-      DB_USERNAME: ${DB_USERNAME}
-      DB_PASSWORD: ${DB_PASSWORD}
+      DB_CONNECTION: sqlite
+      DB_DATABASE: /var/www/html/database/database.sqlite
       APP_ENV: local
       APP_DEBUG: true
       APP_KEY: ${APP_KEY}
       APP_URL: http://localhost:8000
-    depends_on:
-      db:
-        condition: service_healthy
-    networks:
-      - app-network
-
-  db:
-    image: postgres:15-alpine
-    container_name: amostra-pi-db
-    restart: unless-stopped
-    environment:
-      POSTGRES_DB: ${DB_DATABASE}
-      POSTGRES_USER: ${DB_USERNAME}
-      POSTGRES_PASSWORD: ${DB_PASSWORD}
     volumes:
-      - db-data:/var/lib/postgresql/data
-    networks:
-      - app-network
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${DB_USERNAME} -d ${DB_DATABASE}"]
-      interval: 5s
-      timeout: 5s
-      retries: 5
+      - ./database:/var/www/html/database
+      - ./storage:/var/www/html/storage
 
-networks:
-  app-network:
-    driver: bridge
+#  db:
+#    image: postgres:15-alpine
+#    container_name: amostra-pi-db
+#    restart: unless-stopped
+#    environment:
+#      POSTGRES_DB: ${DB_DATABASE}
+#      POSTGRES_USER: ${DB_USERNAME}
+#      POSTGRES_PASSWORD: ${DB_PASSWORD}
+#    volumes:
+#      - db-data:/var/lib/postgresql/data
+#    healthcheck:
+#      test: ["CMD-SHELL", "pg_isready -U ${DB_USERNAME} -d ${DB_DATABASE}"]
+#      interval: 5s
+#      timeout: 5s
+#      retries: 5
 
-volumes:
-  db-data:
