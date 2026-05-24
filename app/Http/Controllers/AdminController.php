@@ -27,9 +27,15 @@ class AdminController extends Controller
         ]);
     }
 
-    public function tccs()
+    public function tccs(Request $request)
     {
-        $tccs = Tcc::with(['evaluations.user', 'orientador', 'evaluators'])->get()->map(function ($tcc) {
+        $query = Tcc::with(['evaluations.user', 'orientador', 'evaluators']);
+
+        if ($request->filled('period')) {
+            $query->where('period', $request->period);
+        }
+
+        $tccs = $query->get()->map(function ($tcc) {
             $etapa1Evals = $tcc->evaluations->where('stage', 'etapa1');
             $etapa2Evals = $tcc->evaluations->where('stage', 'etapa2');
 
@@ -92,6 +98,7 @@ class AdminController extends Controller
                 'id' => $tcc->id,
                 'title' => $tcc->title,
                 'student' => $tcc->student,
+                'period' => $tcc->period,
                 'orientador' => $tcc->orientador ? $tcc->orientador->name : 'N/A',
                 'location' => $tcc->location,
                 'defense_date' => $tcc->defense_date ? Carbon::parse($tcc->defense_date)->format('d/m/Y') : null,
@@ -103,8 +110,14 @@ class AdminController extends Controller
             ];
         });
 
+        $availablePeriods = Tcc::whereNotNull('period')->distinct()->pluck('period')->filter()->values();
+
         return Inertia::render('Admin/Tccs', [
             'tccs' => $tccs,
+            'availablePeriods' => $availablePeriods,
+            'filters' => [
+                'period' => $request->period,
+            ]
         ]);
     }
 
@@ -119,6 +132,60 @@ class AdminController extends Controller
         ]);
     }
 
+    public function storeProfessor(Request $request)
+    {
+        $request->validate([
+            'name' => 'required|string|max:255',
+        ]);
+
+        $email = strtolower(\Illuminate\Support\Str::slug($request->name, '.')) . '@example.com';
+        $tempPassword = \Illuminate\Support\Str::random(8);
+
+        \App\Models\User::create([
+            'name' => $request->name,
+            'email' => $email,
+            'password' => bcrypt($tempPassword),
+            'temp_password' => $tempPassword,
+            'role' => 'professor',
+        ]);
+
+        return redirect()->back()->with('success', 'Professor cadastrado com sucesso!');
+    }
+
+    public function updateProfessor(Request $request, $id)
+    {
+        $request->validate([
+            'name' => 'required|string|max:255',
+        ]);
+
+        $professor = \App\Models\User::findOrFail($id);
+        
+        // If name changed, we could update the email, but it's better to keep it stable.
+        // We'll just update the name.
+        $professor->update([
+            'name' => $request->name,
+        ]);
+
+        return redirect()->back()->with('success', 'Professor atualizado com sucesso!');
+    }
+
+    public function destroyProfessor($id)
+    {
+        $professor = \App\Models\User::findOrFail($id);
+        
+        // Check if professor is an orientador or evaluator
+        $isOrientador = \App\Models\Tcc::where('orientador_id', $professor->id)->exists();
+        $isEvaluator = \DB::table('tcc_evaluator')->where('user_id', $professor->id)->exists();
+
+        if ($isOrientador || $isEvaluator) {
+            return redirect()->back()->with('error', 'Não é possível excluir este professor pois ele está vinculado a um ou mais TCCs.');
+        }
+
+        $professor->delete();
+
+        return redirect()->back()->with('success', 'Professor removido com sucesso!');
+    }
+
     public function showImport()
     {
         return Inertia::render('Admin/Import');
@@ -128,10 +195,15 @@ class AdminController extends Controller
     {
         $request->validate([
             'csv_file' => 'required|file|mimes:csv,txt',
+            'period' => 'required|string|max:20', // e.g. "2026.1"
         ]);
 
+        $period = $request->input('period');
         $file = $request->file('csv_file');
         $lines = file($file->getRealPath());
+        
+        // Load all professors into memory once to do fast, accent-insensitive matching
+        $allProfessors = \App\Models\User::where('role', 'professor')->get();
         
         // Auto-detect delimiter
         $firstLine = $lines[0] ?? '';
@@ -156,13 +228,22 @@ class AdminController extends Controller
                 continue; // Skip invalid rows
             }
             
-            $tccId = trim($row[0]);
+            $tccIdOriginal = trim($row[0]);
             $title = trim($row[1]);
             $student = trim($row[2]);
             $orientadorName = trim($row[3]);
             $avaliadoresString = trim($row[4]);
             $location = trim($row[5]);
             $dateTime = trim($row[6]);
+
+            // Para evitar que TCCs diferentes (de semestres ou turmas diferentes) que usem o mesmo ID no CSV (ex: "TCC01")
+            // se sobrescrevam, criamos um ID único no banco unindo o ID original, o nome do aluno e o período.
+            // Ex: "TCC01-joao-silva-2026-1"
+            $studentSlug = \Illuminate\Support\Str::slug($student);
+            $periodSlug = \Illuminate\Support\Str::slug($period);
+            // Pega os primeiros 15 caracteres do slug do aluno para não ficar um ID gigante
+            $tccId = $tccIdOriginal . '-' . substr($studentSlug, 0, 15) . '-' . $periodSlug;
+
             
             // Parse date and time from formats like "09/12, 17h30 às 18h15"
             $defenseDate = null;
@@ -182,13 +263,11 @@ class AdminController extends Controller
                 }
             }
             
-            // Find or create orientador
-            $orientador = \App\Models\User::where('role', 'professor')
-                ->where('name', 'LIKE', '%' . $orientadorName . '%')
-                ->first();
+            // Find or create orientador using smart accent/case insensitive match
+            $orientador = $this->findProfessorMatch($orientadorName, $allProfessors);
                 
             if (!$orientador) {
-                $email = strtolower(str_replace(' ', '.', $orientadorName)) . '@example.com';
+                $email = strtolower(\Illuminate\Support\Str::slug($orientadorName, '.')) . '@example.com';
                 $tempPassword = \Illuminate\Support\Str::random(8);
                 
                 $orientador = \App\Models\User::create([
@@ -198,6 +277,7 @@ class AdminController extends Controller
                     'temp_password' => $tempPassword,
                     'role' => 'professor',
                 ]);
+                $allProfessors->push($orientador);
             }
             
             // Create or update TCC
@@ -207,6 +287,7 @@ class AdminController extends Controller
                     'title' => $title,
                     'student' => $student,
                     'location' => $location,
+                    'period' => $period,
                     'orientador_id' => $orientador->id,
                     'defense_date' => $defenseDate,
                     'defense_time' => $defenseTime,
@@ -215,14 +296,39 @@ class AdminController extends Controller
             
             // Associate avaliadores (evaluators)
             if (!empty($avaliadoresString)) {
-                $this->associateEvaluators($tcc, $avaliadoresString);
+                $this->associateEvaluators($tcc, $avaliadoresString, $allProfessors);
             }
         }
 
         return redirect()->back()->with('success', 'TCCs importados com sucesso!');
     }
 
-    private function associateEvaluators($tcc, $avaliadoresString)
+    private function findProfessorMatch($name, $allProfessors)
+    {
+        $cleanName = preg_replace('/^(Prof\.|Profa\.|Dr\.|Dra\.|Me\.|Ma\.)\s*/i', '', trim($name));
+        $searchSlug = \Illuminate\Support\Str::slug($cleanName);
+
+        if (empty($searchSlug)) return null;
+
+        // 1. Tenta correspondência exata de slug (ignora acento e case)
+        foreach ($allProfessors as $prof) {
+            if (\Illuminate\Support\Str::slug($prof->name) === $searchSlug) {
+                return $prof;
+            }
+        }
+
+        // 2. Correspondência parcial
+        foreach ($allProfessors as $prof) {
+            $profSlug = \Illuminate\Support\Str::slug($prof->name);
+            if (str_contains($profSlug, $searchSlug) || str_contains($searchSlug, $profSlug)) {
+                return $prof;
+            }
+        }
+
+        return null;
+    }
+
+    private function associateEvaluators($tcc, $avaliadoresString, $allProfessors)
     {
         // Remover aspas duplas e espaços extras
         $avaliadoresString = str_replace('"', '', $avaliadoresString);
@@ -239,14 +345,12 @@ class AdminController extends Controller
         foreach ($evaluatorNames as $name) {
             if (empty($name) || strlen($name) < 3) continue;
             
-            // Find evaluator by name
-            $evaluator = \App\Models\User::where('role', 'professor')
-                ->where('name', 'LIKE', '%' . $name . '%')
-                ->first();
+            // Find evaluator by name using smart match
+            $evaluator = $this->findProfessorMatch($name, $allProfessors);
             
             // If evaluator doesn't exist, create them
             if (!$evaluator) {
-                $email = strtolower(str_replace(' ', '.', $name)) . '@example.com';
+                $email = strtolower(\Illuminate\Support\Str::slug($name, '.')) . '@example.com';
                 $tempPassword = \Illuminate\Support\Str::random(8);
                 
                 $evaluator = \App\Models\User::create([
@@ -256,6 +360,7 @@ class AdminController extends Controller
                     'temp_password' => $tempPassword,
                     'role' => 'professor',
                 ]);
+                $allProfessors->push($evaluator);
             }
             
             if ($evaluator) {

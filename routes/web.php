@@ -32,6 +32,9 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('/admin/dashboard', [AdminController::class, 'index'])->name('admin.dashboard');
     Route::get('/admin/tccs', [AdminController::class, 'tccs'])->name('admin.tccs');
     Route::get('/admin/professors', [AdminController::class, 'professors'])->name('admin.professors');
+    Route::post('/admin/professors', [AdminController::class, 'storeProfessor'])->name('admin.professors.store');
+    Route::put('/admin/professors/{id}', [AdminController::class, 'updateProfessor'])->name('admin.professors.update');
+    Route::delete('/admin/professors/{id}', [AdminController::class, 'destroyProfessor'])->name('admin.professors.destroy');
     Route::get('/admin/import', [AdminController::class, 'showImport'])->name('admin.import_show');
     Route::post('/admin/import', [AdminController::class, 'import'])->name('admin.import');
     Route::get('/admin/export', [AdminController::class, 'export'])->name('admin.export');
