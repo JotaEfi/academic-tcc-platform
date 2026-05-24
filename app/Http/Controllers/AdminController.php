@@ -12,8 +12,24 @@ class AdminController extends Controller
 {
     public function index()
     {
+        $totalTccs = Tcc::count();
+        $totalProfessors = \App\Models\User::where('role', 'professor')->count();
+        $evaluatedTccs = Tcc::has('evaluations')->count();
+        $totalEvaluations = \App\Models\Evaluation::count();
+
+        return Inertia::render('Admin/Dashboard', [
+            'stats' => [
+                'totalTccs' => $totalTccs,
+                'totalProfessors' => $totalProfessors,
+                'evaluatedTccs' => $evaluatedTccs,
+                'totalEvaluations' => $totalEvaluations,
+            ]
+        ]);
+    }
+
+    public function tccs()
+    {
         $tccs = Tcc::with(['evaluations.user', 'orientador', 'evaluators'])->get()->map(function ($tcc) {
-            // Cálculo alinhado com a tela de TCCs avaliados
             $etapa1Evals = $tcc->evaluations->where('stage', 'etapa1');
             $etapa2Evals = $tcc->evaluations->where('stage', 'etapa2');
 
@@ -35,7 +51,6 @@ class AdminController extends Controller
                 $etapa2Avg = $totalGrade / $etapa2Evals->count();
             }
 
-            // Nota final geral, mesma regra da tela de avaliados
             $evaluationsByUser = $tcc->evaluations->groupBy('user_id');
 
             $allEvaluators = $tcc->evaluators;
@@ -88,14 +103,25 @@ class AdminController extends Controller
             ];
         });
 
+        return Inertia::render('Admin/Tccs', [
+            'tccs' => $tccs,
+        ]);
+    }
+
+    public function professors()
+    {
         $professors = \App\Models\User::where('role', 'professor')
             ->select('id', 'name', 'temp_password', 'access_token')
             ->get();
 
-        return Inertia::render('Admin/Dashboard', [
-            'tccs' => $tccs,
+        return Inertia::render('Admin/Professors', [
             'professors' => $professors,
         ]);
+    }
+
+    public function showImport()
+    {
+        return Inertia::render('Admin/Import');
     }
 
     public function import(Request $request)

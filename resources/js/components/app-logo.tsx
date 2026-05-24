@@ -1,4 +1,4 @@
-import logo from '/resources/js/assets/logo-quadrada-unifap.png';
+import logo from '@/assets/logo-quadrada-unifap.png';
 
 export default function AppLogo() {
     return (

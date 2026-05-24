@@ -39,17 +39,17 @@ export function AppSidebar() {
             },
             {
                 title: 'TCCs',
-                href: '/admin/dashboard?tab=tccs',
+                href: '/admin/tccs',
                 icon: FolderOpen,
             },
             {
                 title: 'Professores',
-                href: '/admin/dashboard?tab=professors',
+                href: '/admin/professors',
                 icon: Users,
             },
             {
                 title: 'Importar Dados',
-                href: '/admin/dashboard?tab=import',
+                href: '/admin/import',
                 icon: Upload,
             },
             {

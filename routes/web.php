@@ -30,6 +30,9 @@ Route::middleware(['auth', 'verified'])->group(function () {
 
     // Admin
     Route::get('/admin/dashboard', [AdminController::class, 'index'])->name('admin.dashboard');
+    Route::get('/admin/tccs', [AdminController::class, 'tccs'])->name('admin.tccs');
+    Route::get('/admin/professors', [AdminController::class, 'professors'])->name('admin.professors');
+    Route::get('/admin/import', [AdminController::class, 'showImport'])->name('admin.import_show');
     Route::post('/admin/import', [AdminController::class, 'import'])->name('admin.import');
     Route::get('/admin/export', [AdminController::class, 'export'])->name('admin.export');
     Route::get('/admin/evaluated-tccs', [AdminController::class, 'evaluatedTccs'])->name('admin.evaluated_tccs');
