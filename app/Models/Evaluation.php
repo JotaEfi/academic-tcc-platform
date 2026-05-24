@@ -10,7 +10,7 @@ class Evaluation extends Model
     /**
      * Calcula a nota ponderada da Etapa 2.
      * Os critérios são B1 a B5, os pesos são [1, 4, 8, 8, 8].
-     * A nota final é a soma dos produtos dividido por 14.5.
+     * A nota final é a soma dos produtos dividido pela soma dos pesos (29).
      */
     public function etapa2Score()
     {
@@ -26,9 +26,9 @@ class Evaluation extends Model
         for ($i = 0; $i < 5; $i++) {
             $total += $scores[$i] * $pesos[$i];
         }
-        return round($total / 14.5, 2);
+        return round($total / 29, 2);
     }
-    // ...existing code...
+    
     use HasFactory;
 
     protected $fillable = ['tcc_id', 'user_id', 'stage', 'scores'];
@@ -40,7 +40,7 @@ class Evaluation extends Model
     /**
      * Calcula a nota ponderada da Etapa 1.
      * Os critérios são A1 a A9, os pesos são [1, 1, 1, 1, 4, 2, 6, 6, 6].
-     * A nota final é a soma dos produtos dividido por 14.
+     * A nota final é a soma dos produtos dividido pela soma dos pesos (28).
      */
     public function etapa1Score()
     {
@@ -56,7 +56,7 @@ class Evaluation extends Model
         for ($i = 0; $i < 9; $i++) {
             $total += $scores[$i] * $pesos[$i];
         }
-        return round($total / 14, 2);
+        return round($total / 28, 2);
     }
 
     public function tcc()

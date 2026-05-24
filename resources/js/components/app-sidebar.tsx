@@ -35,6 +35,11 @@ export function AppSidebar() {
                 icon: FolderOpen,
             },
             {
+                title: 'Resultados',
+                href: '/admin/results',
+                icon: BarChart3,
+            },
+            {
                 title: 'Professores',
                 href: '/admin/professors',
                 icon: Users,

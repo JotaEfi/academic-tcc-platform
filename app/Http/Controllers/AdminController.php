@@ -10,14 +10,28 @@ use Carbon\Carbon;
 
 class AdminController extends Controller
 {
-    public function index()
+    public function index(Request $request)
     {
-        $totalTccs = Tcc::count();
-        $totalProfessors = \App\Models\User::where('role', 'professor')->count();
-        $evaluatedTccsCount = Tcc::has('evaluations')->count();
-        $totalEvaluations = \App\Models\Evaluation::count();
+        $period = $request->period;
 
-        $tccs = Tcc::has('evaluations')->with(['evaluations.user', 'orientador', 'evaluators'])->get()->map(function ($tcc) {
+        $tccsQuery = Tcc::has('evaluations')->with(['evaluations.user', 'orientador', 'evaluators']);
+        $totalTccsQuery = Tcc::query();
+        $evaluationsQuery = \App\Models\Evaluation::query();
+
+        if ($request->filled('period')) {
+            $tccsQuery->where('period', $period);
+            $totalTccsQuery->where('period', $period);
+            $evaluationsQuery->whereHas('tcc', function ($q) use ($period) {
+                $q->where('period', $period);
+            });
+        }
+
+        $totalTccs = $totalTccsQuery->count();
+        $totalProfessors = \App\Models\User::where('role', 'professor')->count();
+        $evaluatedTccsCount = $tccsQuery->count();
+        $totalEvaluations = $evaluationsQuery->count();
+
+        $tccs = $tccsQuery->get()->map(function ($tcc) {
             $etapa1Evals = $tcc->evaluations->where('stage', 'etapa1');
             $etapa2Evals = $tcc->evaluations->where('stage', 'etapa2');
 
@@ -76,13 +90,14 @@ class AdminController extends Controller
             if ($validProfessorGrades->count() === $professorGrades->count() && $professorGrades->count() > 0) {
                 $finalAvg = $validProfessorGrades->avg('final_grade');
             } else {
-                $finalAvg = null;
+                $finalAvg = $validProfessorGrades->count() > 0 ? $validProfessorGrades->avg('final_grade') : null;
             }
 
             return [
                 'id' => $tcc->id,
                 'title' => $tcc->title,
                 'student' => $tcc->student,
+                'period' => $tcc->period,
                 'orientador' => $tcc->orientador ? $tcc->orientador->name : 'N/A',
                 'defense_date' => $tcc->defense_date ? \Carbon\Carbon::parse($tcc->defense_date)->format('d/m/Y') : null,
                 'defense_time' => $tcc->defense_time,
@@ -95,6 +110,8 @@ class AdminController extends Controller
             ];
         });
 
+        $availablePeriods = Tcc::whereNotNull('period')->distinct()->pluck('period')->filter()->values();
+
         return Inertia::render('Admin/Dashboard', [
             'stats' => [
                 'totalTccs' => $totalTccs,
@@ -102,7 +119,130 @@ class AdminController extends Controller
                 'evaluatedTccs' => $evaluatedTccsCount,
                 'totalEvaluations' => $totalEvaluations,
             ],
-            'tccs' => $tccs
+            'tccs' => $tccs,
+            'availablePeriods' => $availablePeriods,
+            'filters' => [
+                'period' => $period,
+            ]
+        ]);
+    }
+
+    public function results(Request $request)
+    {
+        $query = Tcc::has('evaluations')->with(['evaluations.user', 'orientador', 'evaluators']);
+
+        if ($request->filled('period')) {
+            $query->where('period', $request->period);
+        }
+
+        $tccs = $query->get()->map(function ($tcc) {
+            $etapa1Evals = $tcc->evaluations->where('stage', 'etapa1');
+            $etapa2Evals = $tcc->evaluations->where('stage', 'etapa2');
+
+            $etapa1Avg = 0;
+            if ($etapa1Evals->count() > 0) {
+                $totalGrade = $etapa1Evals->sum(function ($ev) {
+                    $score = $ev->etapa1Score();
+                    return $score !== null ? $score : 0;
+                });
+                $etapa1Avg = $totalGrade / $etapa1Evals->count();
+            }
+
+            $etapa2Avg = 0;
+            if ($etapa2Evals->count() > 0) {
+                $totalGrade = $etapa2Evals->sum(function ($ev) {
+                    $score = $ev->etapa2Score();
+                    return $score !== null ? $score : 0;
+                });
+                $etapa2Avg = $totalGrade / $etapa2Evals->count();
+            }
+
+            $evaluationsByUser = $tcc->evaluations->groupBy('user_id');
+
+            $allEvaluators = $tcc->evaluators;
+            if ($tcc->orientador && !$allEvaluators->contains('id', $tcc->orientador->id)) {
+                $allEvaluators = $allEvaluators->concat(collect([$tcc->orientador]));
+            }
+
+            $professorGrades = $allEvaluators->map(function ($evaluator) use ($evaluationsByUser) {
+                $evaluationsByProfessor = $evaluationsByUser->get($evaluator->id, collect());
+
+                $etapa1Eval = $evaluationsByProfessor->firstWhere('stage', 'etapa1');
+                $etapa2Eval = $evaluationsByProfessor->firstWhere('stage', 'etapa2');
+
+                $etapa1Grade = $etapa1Eval ? $etapa1Eval->etapa1Score() : null;
+                $etapa2Grade = $etapa2Eval ? $etapa2Eval->etapa2Score() : null;
+
+                $final = null;
+                if ($etapa1Grade !== null && $etapa2Grade !== null) {
+                    $final = ($etapa1Grade * 0.7) + ($etapa2Grade * 0.3);
+                } elseif ($etapa1Grade !== null) {
+                    $final = $etapa1Grade;
+                } elseif ($etapa2Grade !== null) {
+                    $final = $etapa2Grade;
+                }
+
+                return [
+                    'professor' => $evaluator->name,
+                    'etapa1_grade' => $etapa1Grade !== null ? round($etapa1Grade, 2) : null,
+                    'etapa2_grade' => $etapa2Grade !== null ? round($etapa2Grade, 2) : null,
+                    'final_grade' => $final !== null ? round($final, 2) : null,
+                ];
+            });
+
+            $validProfessorGrades = $professorGrades->whereNotNull('final_grade');
+            
+            // TCC is completed only when all panel members have graded both stages
+            $isComplete = $validProfessorGrades->count() === $professorGrades->count() && $professorGrades->count() > 0;
+            
+            if ($isComplete) {
+                $finalAvg = $validProfessorGrades->avg('final_grade');
+            } else {
+                $finalAvg = $validProfessorGrades->count() > 0 ? $validProfessorGrades->avg('final_grade') : null;
+            }
+
+            return [
+                'id' => $tcc->id,
+                'title' => $tcc->title,
+                'student' => $tcc->student,
+                'period' => $tcc->period,
+                'orientador' => $tcc->orientador ? $tcc->orientador->name : 'N/A',
+                'defense_date' => $tcc->defense_date ? \Carbon\Carbon::parse($tcc->defense_date)->format('d/m/Y') : null,
+                'defense_time' => $tcc->defense_time,
+                'evaluators' => $allEvaluators->pluck('name'),
+                'location' => $tcc->location,
+                'etapa1_average' => round($etapa1Avg, 2),
+                'etapa2_average' => round($etapa2Avg, 2),
+                'final_average' => $finalAvg !== null ? round($finalAvg, 2) : null,
+                'professor_grades' => $professorGrades,
+                'is_complete' => $isComplete
+            ];
+        });
+
+        // Compute stats for current selection
+        $totalBancas = $tccs->count();
+        $completedBancas = $tccs->where('is_complete', true)->count();
+        $pendingBancas = $totalBancas - $completedBancas;
+        
+        $validAverages = $tccs->whereNotNull('final_average');
+        $geralAverage = $validAverages->count() > 0 ? round($validAverages->avg('final_average'), 2) : 0;
+        $maxGrade = $validAverages->count() > 0 ? $validAverages->max('final_average') : 0;
+
+        $availablePeriods = Tcc::whereNotNull('period')->distinct()->pluck('period')->filter()->values();
+
+        return Inertia::render('Admin/Results', [
+            'tccs' => $tccs,
+            'availablePeriods' => $availablePeriods,
+            'filters' => [
+                'period' => $request->period,
+            ],
+            'stats' => [
+                'totalBancas' => $totalBancas,
+                'completedBancas' => $completedBancas,
+                'pendingBancas' => $pendingBancas,
+                'geralAverage' => $geralAverage,
+                'maxGrade' => $maxGrade
+            ]
         ]);
     }
 

@@ -30,6 +30,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
 
     // Admin
     Route::get('/admin/dashboard', [AdminController::class, 'index'])->name('admin.dashboard');
+    Route::get('/admin/results', [AdminController::class, 'results'])->name('admin.results');
     Route::get('/admin/tccs', [AdminController::class, 'tccs'])->name('admin.tccs');
     Route::get('/admin/professors', [AdminController::class, 'professors'])->name('admin.professors');
     Route::post('/admin/professors', [AdminController::class, 'storeProfessor'])->name('admin.professors.store');
