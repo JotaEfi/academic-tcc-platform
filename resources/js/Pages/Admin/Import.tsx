@@ -4,14 +4,23 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button';
 import { UploadCloud, FileType, CheckCircle, AlertCircle, Loader2, Download } from 'lucide-react';
 import AppLayout from '@/layouts/app-layout';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 
 declare global {
     var route: (name: string, params?: any, absolute?: boolean) => string;
 }
 
-export default function Import() {
+export default function Import({ availablePeriods = [] }: { availablePeriods?: string[] }) {
     const fileInputRef = useRef<HTMLInputElement>(null);
     const [isDragging, setIsDragging] = useState(false);
+    const [isConfirmOpen, setIsConfirmOpen] = useState(false);
     const { props } = usePage();
     const flash = props.flash as { success?: string, error?: string } || {};
 
@@ -54,6 +63,14 @@ export default function Import() {
         e.preventDefault();
         if (!data.csv_file) return;
 
+        if (availablePeriods.includes(data.period)) {
+            setIsConfirmOpen(true);
+        } else {
+            submitForm();
+        }
+    };
+
+    const submitForm = () => {
         post(route('admin.import'), {
             preserveScroll: true,
             onSuccess: () => {
@@ -61,7 +78,11 @@ export default function Import() {
                 if (fileInputRef.current) {
                     fileInputRef.current.value = '';
                 }
+                setIsConfirmOpen(false);
             },
+            onError: () => {
+                setIsConfirmOpen(false);
+            }
         });
     };
 
@@ -265,6 +286,41 @@ export default function Import() {
                     </div>
                 </div>
             </div>
+
+            <Dialog open={isConfirmOpen} onOpenChange={setIsConfirmOpen}>
+                <DialogContent>
+                    <DialogHeader>
+                        <DialogTitle className="flex items-center gap-2 text-amber-600">
+                            <AlertCircle className="w-5 h-5" />
+                            Atenção: Período já existente
+                        </DialogTitle>
+                        <DialogDescription className="pt-3 text-base text-gray-700">
+                            O período <strong>{data.period}</strong> já possui TCCs cadastrados no banco de dados.
+                        </DialogDescription>
+                    </DialogHeader>
+                    
+                    <div className="bg-amber-50 p-4 rounded-md my-2 text-sm text-amber-800">
+                        Se você prosseguir, os TCCs desta planilha serão mesclados com os existentes neste período. TCCs com o mesmo ID (ex: TCC01) para o mesmo aluno serão atualizados.
+                        <br/><br/>
+                        Tem certeza que deseja importar os dados para este período?
+                    </div>
+
+                    <DialogFooter className="mt-4">
+                        <Button variant="outline" onClick={() => setIsConfirmOpen(false)}>
+                            Cancelar
+                        </Button>
+                        <Button 
+                            className="bg-amber-600 hover:bg-amber-700 text-white" 
+                            onClick={() => {
+                                setIsConfirmOpen(false);
+                                submitForm();
+                            }}
+                        >
+                            Sim, importar dados
+                        </Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
         </AppLayout>
     );
 }

@@ -72,7 +72,7 @@ export default function TccsPage({ tccs, availablePeriods = [], filters = { peri
         </div>
 
         <Card className="shadow-xl border-0 bg-white">
-          <CardContent className="pt-6">
+          <CardContent>
             <div className="overflow-x-auto">
               <table className="w-full">
                 <thead>

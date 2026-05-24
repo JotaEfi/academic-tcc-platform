@@ -188,7 +188,10 @@ class AdminController extends Controller
 
     public function showImport()
     {
-        return Inertia::render('Admin/Import');
+        $availablePeriods = \App\Models\Tcc::whereNotNull('period')->distinct()->pluck('period')->filter()->values();
+        return Inertia::render('Admin/Import', [
+            'availablePeriods' => $availablePeriods
+        ]);
     }
 
     public function import(Request $request)
