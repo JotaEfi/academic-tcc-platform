@@ -14,16 +14,95 @@ class AdminController extends Controller
     {
         $totalTccs = Tcc::count();
         $totalProfessors = \App\Models\User::where('role', 'professor')->count();
-        $evaluatedTccs = Tcc::has('evaluations')->count();
+        $evaluatedTccsCount = Tcc::has('evaluations')->count();
         $totalEvaluations = \App\Models\Evaluation::count();
+
+        $tccs = Tcc::has('evaluations')->with(['evaluations.user', 'orientador', 'evaluators'])->get()->map(function ($tcc) {
+            $etapa1Evals = $tcc->evaluations->where('stage', 'etapa1');
+            $etapa2Evals = $tcc->evaluations->where('stage', 'etapa2');
+
+            $etapa1Avg = 0;
+            if ($etapa1Evals->count() > 0) {
+                $totalGrade = $etapa1Evals->sum(function ($ev) {
+                    $score = $ev->etapa1Score();
+                    return $score !== null ? $score : 0;
+                });
+                $etapa1Avg = $totalGrade / $etapa1Evals->count();
+            }
+
+            $etapa2Avg = 0;
+            if ($etapa2Evals->count() > 0) {
+                $totalGrade = $etapa2Evals->sum(function ($ev) {
+                    $score = $ev->etapa2Score();
+                    return $score !== null ? $score : 0;
+                });
+                $etapa2Avg = $totalGrade / $etapa2Evals->count();
+            }
+
+            $evaluationsByUser = $tcc->evaluations->groupBy('user_id');
+
+            $allEvaluators = $tcc->evaluators;
+            if ($tcc->orientador && !$allEvaluators->contains('id', $tcc->orientador->id)) {
+                $allEvaluators = $allEvaluators->concat(collect([$tcc->orientador]));
+            }
+
+            $professorGrades = $allEvaluators->map(function ($evaluator) use ($evaluationsByUser) {
+                $evaluationsByProfessor = $evaluationsByUser->get($evaluator->id, collect());
+
+                $etapa1Eval = $evaluationsByProfessor->firstWhere('stage', 'etapa1');
+                $etapa2Eval = $evaluationsByProfessor->firstWhere('stage', 'etapa2');
+
+                $etapa1Grade = $etapa1Eval ? $etapa1Eval->etapa1Score() : null;
+                $etapa2Grade = $etapa2Eval ? $etapa2Eval->etapa2Score() : null;
+
+                $final = null;
+                if ($etapa1Grade !== null && $etapa2Grade !== null) {
+                    $final = ($etapa1Grade * 0.7) + ($etapa2Grade * 0.3);
+                } elseif ($etapa1Grade !== null) {
+                    $final = $etapa1Grade;
+                } elseif ($etapa2Grade !== null) {
+                    $final = $etapa2Grade;
+                }
+
+                return [
+                    'professor' => $evaluator->name,
+                    'etapa1_grade' => $etapa1Grade !== null ? round($etapa1Grade, 2) : null,
+                    'etapa2_grade' => $etapa2Grade !== null ? round($etapa2Grade, 2) : null,
+                    'final_grade' => $final !== null ? round($final, 2) : null,
+                ];
+            });
+
+            $validProfessorGrades = $professorGrades->whereNotNull('final_grade');
+            if ($validProfessorGrades->count() === $professorGrades->count() && $professorGrades->count() > 0) {
+                $finalAvg = $validProfessorGrades->avg('final_grade');
+            } else {
+                $finalAvg = null;
+            }
+
+            return [
+                'id' => $tcc->id,
+                'title' => $tcc->title,
+                'student' => $tcc->student,
+                'orientador' => $tcc->orientador ? $tcc->orientador->name : 'N/A',
+                'defense_date' => $tcc->defense_date ? \Carbon\Carbon::parse($tcc->defense_date)->format('d/m/Y') : null,
+                'defense_time' => $tcc->defense_time,
+                'evaluators' => $allEvaluators->pluck('name'),
+                'location' => $tcc->location,
+                'etapa1_average' => round($etapa1Avg, 2),
+                'etapa2_average' => round($etapa2Avg, 2),
+                'final_average' => $finalAvg !== null ? round($finalAvg, 2) : null,
+                'professor_grades' => $professorGrades
+            ];
+        });
 
         return Inertia::render('Admin/Dashboard', [
             'stats' => [
                 'totalTccs' => $totalTccs,
                 'totalProfessors' => $totalProfessors,
-                'evaluatedTccs' => $evaluatedTccs,
+                'evaluatedTccs' => $evaluatedTccsCount,
                 'totalEvaluations' => $totalEvaluations,
-            ]
+            ],
+            'tccs' => $tccs
         ]);
     }
 
@@ -449,134 +528,5 @@ class AdminController extends Controller
         };
 
         return response()->stream($callback, 200, $headers);
-    }
-
-    public function evaluatedTccs()
-    {
-        // Fetch TCCs that have at least one evaluation
-        $tccs = Tcc::has('evaluations')->with(['evaluations.user', 'orientador', 'evaluators'])->get()->map(function ($tcc) {
-            // Calculate averages per stage using domain methods on Evaluation
-            $etapa1Evals = $tcc->evaluations->where('stage', 'etapa1');
-            $etapa2Evals = $tcc->evaluations->where('stage', 'etapa2');
-
-            $etapa1Avg = 0;
-            if ($etapa1Evals->count() > 0) {
-                $totalGrade = $etapa1Evals->sum(function ($ev) {
-                    $score = $ev->etapa1Score();
-                    return $score !== null ? $score : 0;
-                });
-                $etapa1Avg = $totalGrade / $etapa1Evals->count();
-            }
-
-            $etapa2Avg = 0;
-            if ($etapa2Evals->count() > 0) {
-                $totalGrade = $etapa2Evals->sum(function ($ev) {
-                    $score = $ev->etapa2Score();
-                    return $score !== null ? $score : 0;
-                });
-                $etapa2Avg = $totalGrade / $etapa2Evals->count();
-            }
-
-            // Prepare professor grades detail grouped by professor, incluindo avaliadores que ainda não avaliaram
-            $evaluationsByUser = $tcc->evaluations->groupBy('user_id');
-
-            // Constrói a lista completa de avaliadores: banca + orientador
-            $allEvaluators = $tcc->evaluators;
-            if ($tcc->orientador && !$allEvaluators->contains('id', $tcc->orientador->id)) {
-                $allEvaluators = $allEvaluators->concat(collect([$tcc->orientador]));
-            }
-
-            $professorGrades = $allEvaluators->map(function ($evaluator) use ($evaluationsByUser) {
-                $evaluationsByProfessor = $evaluationsByUser->get($evaluator->id, collect());
-
-                $etapa1Eval = $evaluationsByProfessor->firstWhere('stage', 'etapa1');
-                $etapa2Eval = $evaluationsByProfessor->firstWhere('stage', 'etapa2');
-
-                $etapa1Grade = $etapa1Eval ? $etapa1Eval->etapa1Score() : null;
-                $etapa2Grade = $etapa2Eval ? $etapa2Eval->etapa2Score() : null;
-
-                $final = null;
-                if ($etapa1Grade !== null && $etapa2Grade !== null) {
-                    // Nota final do professor: 70% Etapa 1, 30% Etapa 2
-                    $final = ($etapa1Grade * 0.7) + ($etapa2Grade * 0.3);
-                } elseif ($etapa1Grade !== null) {
-                    $final = $etapa1Grade;
-                } elseif ($etapa2Grade !== null) {
-                    $final = $etapa2Grade;
-                }
-
-                return [
-                    'professor' => $evaluator->name,
-                    'etapa1_grade' => $etapa1Grade !== null ? round($etapa1Grade, 2) : null,
-                    'etapa2_grade' => $etapa2Grade !== null ? round($etapa2Grade, 2) : null,
-                    'final_grade' => $final !== null ? round($final, 2) : null,
-                ];
-            });
-
-            // Final average of the TCC: média das notas finais individuais dos professores
-            $validProfessorGrades = $professorGrades->whereNotNull('final_grade');
-            // Só calcula média geral se TODOS os avaliadores tiverem nota final individual
-            if ($validProfessorGrades->count() === $professorGrades->count() && $professorGrades->count() > 0) {
-                $finalAvg = $validProfessorGrades->avg('final_grade');
-            } else {
-                // Enquanto nem todos avaliadores tiverem nota final, consideramos pendente
-                $finalAvg = null;
-            }
-
-            return [
-                'id' => $tcc->id,
-                'title' => $tcc->title,
-                'student' => $tcc->student,
-                'orientador' => $tcc->orientador ? $tcc->orientador->name : 'N/A',
-                'defense_date' => $tcc->defense_date ? Carbon::parse($tcc->defense_date)->format('d/m/Y') : null,
-                'defense_time' => $tcc->defense_time,
-                // Lista de avaliadores exibidos (inclui orientador se ele também avalia)
-                'evaluators' => $allEvaluators->pluck('name'),
-                'location' => $tcc->location,
-                'etapa1_average' => round($etapa1Avg, 2),
-                'etapa2_average' => round($etapa2Avg, 2),
-                'final_average' => $finalAvg !== null ? round($finalAvg, 2) : null,
-                'professor_grades' => $professorGrades
-            ];
-        });
-        
-        return Inertia::render('Admin/EvaluatedTccs', ['tccs' => $tccs]);
-    }
-
-    
-    public function resetDatabase(Request $request) 
-    {
-        // Explicitly for SQLite
-        if (\DB::getDriverName() == 'sqlite') {
-            \DB::statement('PRAGMA foreign_keys = OFF;');
-        }
-        
-        // No try-catch: if it fails, we want to see the 500 error page detailed message
-        \DB::transaction(function () {
-            // 1. Delete Evaluations
-            \App\Models\Evaluation::query()->delete();
-            
-            // 2. Clear relationships
-            \DB::table('tcc_evaluator')->delete();
-            // \DB::table('project_user')->delete(); // Likely linked to Project model which is invalid
-            
-            // 3. Delete TCCs
-            \App\Models\Tcc::query()->delete();
-            // \App\Models\Project::query()->delete(); // Removed: table likely doesn't exist
-            
-            // 4. Delete Users (Except Admin)
-            \App\Models\User::where('role', '!=', 'admin')->delete();
-
-            // Reset Auto Increment if possible (SQLite specific)
-            if (\DB::getDriverName() == 'sqlite') {
-                \DB::statement("DELETE FROM sqlite_sequence WHERE name IN ('evaluations', 'tccs', 'users')");
-            }
-        });
-
-        if (\DB::getDriverName() == 'sqlite') {
-            \DB::statement('PRAGMA foreign_keys = ON;');
-        }
-
-        return redirect()->route('admin.dashboard')->with('success', 'Banco de dados resetado com sucesso! Apenas o usuário Admin foi mantido.');
     }
 }

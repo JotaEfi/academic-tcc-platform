@@ -45,13 +45,6 @@ export default function TccsPage({ tccs, availablePeriods = [], filters = { peri
             <h1 className="text-2xl font-bold tracking-tight text-gray-900 dark:text-white">Gerenciar TCCs</h1>
             <p className="text-sm text-gray-500 mt-1">Visualize e gerencie todos os trabalhos de conclusão de curso cadastrados no sistema</p>
           </div>
-          <Button
-            onClick={() => window.location.href = route('admin.evaluated_tccs')}
-            className="flex items-center gap-2 bg-white text-gray-700 border border-gray-300 hover:bg-gray-50 shrink-0"
-          >
-            <BarChart3 className="w-4 h-4" />
-            Ver Resultados
-          </Button>
         </div>
 
         <div className="flex flex-col sm:flex-row items-center gap-4 bg-white p-4 rounded-xl shadow-sm border border-gray-100">

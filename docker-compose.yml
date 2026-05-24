@@ -3,8 +3,8 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
-    image: amostra-pi-app
-    container_name: amostra-pi-app
+    image: avalia-tcc-app
+    container_name: avalia-tcc-app
     restart: unless-stopped
     ports:
       - "8000:80"

@@ -44,11 +44,6 @@ export function AppSidebar() {
                 href: '/admin/import',
                 icon: Upload,
             },
-            {
-                title: 'Ver Resultados',
-                href: '/admin/evaluated-tccs',
-                icon: BarChart3,
-            },
         ];
     } else if (role === 'professor') {
         items = [
