@@ -213,14 +213,19 @@ export default function ProfessorDashboard({ tccs }: { tccs: any[] }) {
 
                       {/* Ações - Desktop */}
                       <div className="hidden sm:flex flex-col gap-2">
-                        <Link href={route('professor.evaluate', tcc.id) + '?stage=etapa1'}>
-                          <Button className={`w-full ${tcc.etapa1_completed ? 'bg-gray-600' : 'bg-blue-600'} hover:bg-blue-700 text-white`}>
+                        {tcc.status === 'closed' && (
+                            <div className="bg-red-50 text-red-700 text-xs text-center py-1.5 rounded-md font-semibold border border-red-100 mb-1">
+                                Período Encerrado
+                            </div>
+                        )}
+                        <Link href={route('professor.evaluate', tcc.id) + '?stage=etapa1'} className={tcc.status === 'closed' && !tcc.etapa1_completed ? 'pointer-events-none opacity-50' : ''}>
+                          <Button className={`w-full ${tcc.etapa1_completed ? 'bg-gray-600' : 'bg-blue-600'} hover:bg-blue-700 text-white`} disabled={tcc.status === 'closed' && !tcc.etapa1_completed}>
                             <ClipboardList className="w-4 h-4 mr-2" />
                             {tcc.etapa1_completed ? 'Ver Etapa 1' : 'Avaliar Etapa 1'}
                           </Button>
                         </Link>
-                        <Link href={route('professor.evaluate', tcc.id) + '?stage=etapa2'}>
-                          <Button className={`w-full ${tcc.etapa2_completed ? 'bg-gray-600' : 'bg-blue-600'} hover:bg-blue-700 text-white`}>
+                        <Link href={route('professor.evaluate', tcc.id) + '?stage=etapa2'} className={tcc.status === 'closed' && !tcc.etapa2_completed ? 'pointer-events-none opacity-50' : ''}>
+                          <Button className={`w-full ${tcc.etapa2_completed ? 'bg-gray-600' : 'bg-blue-600'} hover:bg-blue-700 text-white`} disabled={tcc.status === 'closed' && !tcc.etapa2_completed}>
                             <ClipboardList className="w-4 h-4 mr-2" />
                             {tcc.etapa2_completed ? 'Ver Etapa 2' : 'Avaliar Etapa 2'}
                           </Button>
@@ -230,14 +235,19 @@ export default function ProfessorDashboard({ tccs }: { tccs: any[] }) {
 
                     {/* Botões - Mobile */}
                     <div className="sm:hidden mt-4 space-y-2">
-                      <Link href={route('professor.evaluate', tcc.id) + '?stage=etapa1'} className="block">
-                        <Button className={`w-full ${tcc.etapa1_completed ? 'bg-gray-600' : 'bg-blue-600'} hover:bg-blue-700 text-white py-6`}>
+                      {tcc.status === 'closed' && (
+                          <div className="bg-red-50 text-red-700 text-xs text-center py-2 rounded-md font-semibold border border-red-100 mb-2">
+                              Período de Avaliação Encerrado
+                          </div>
+                      )}
+                      <Link href={route('professor.evaluate', tcc.id) + '?stage=etapa1'} className={`block ${tcc.status === 'closed' && !tcc.etapa1_completed ? 'pointer-events-none opacity-50' : ''}`}>
+                        <Button className={`w-full ${tcc.etapa1_completed ? 'bg-gray-600' : 'bg-blue-600'} hover:bg-blue-700 text-white py-6`} disabled={tcc.status === 'closed' && !tcc.etapa1_completed}>
                           <ClipboardList className="w-5 h-5 mr-2" />
                           {tcc.etapa1_completed ? 'Ver Etapa 1' : 'Avaliar Etapa 1'}
                         </Button>
                       </Link>
-                      <Link href={route('professor.evaluate', tcc.id) + '?stage=etapa2'} className="block">
-                        <Button className={`w-full ${tcc.etapa2_completed ? 'bg-gray-600' : 'bg-blue-600'} hover:bg-blue-700 text-white py-6`}>
+                      <Link href={route('professor.evaluate', tcc.id) + '?stage=etapa2'} className={`block ${tcc.status === 'closed' && !tcc.etapa2_completed ? 'pointer-events-none opacity-50' : ''}`}>
+                        <Button className={`w-full ${tcc.etapa2_completed ? 'bg-gray-600' : 'bg-blue-600'} hover:bg-blue-700 text-white py-6`} disabled={tcc.status === 'closed' && !tcc.etapa2_completed}>
                           <ClipboardList className="w-5 h-5 mr-2" />
                           {tcc.etapa2_completed ? 'Ver Etapa 2' : 'Avaliar Etapa 2'}
                         </Button>

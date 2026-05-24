@@ -322,6 +322,7 @@ class AdminController extends Controller
                 'location' => $tcc->location,
                 'defense_date' => $tcc->defense_date ? Carbon::parse($tcc->defense_date)->format('d/m/Y') : null,
                 'defense_time' => $tcc->defense_time,
+                'status' => $tcc->status,
                 'average' => $finalAvg !== null ? round($finalAvg, 2) : null,
                 'evaluations_count' => $tcc->evaluations->count(),
                 'evaluators_count' => $tcc->evaluators->count(),
@@ -338,6 +339,19 @@ class AdminController extends Controller
                 'period' => $request->period,
             ]
         ]);
+    }
+
+    public function updateTccStatus(Request $request)
+    {
+        $request->validate([
+            'tcc_ids' => 'required|array',
+            'tcc_ids.*' => 'string|exists:tccs,id',
+            'status' => 'required|in:open,closed',
+        ]);
+
+        Tcc::whereIn('id', $request->tcc_ids)->update(['status' => $request->status]);
+
+        return redirect()->back()->with('success', 'Status de avaliação dos TCCs selecionados foi atualizado.');
     }
 
     public function professors()

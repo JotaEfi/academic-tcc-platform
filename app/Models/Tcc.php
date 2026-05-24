@@ -9,7 +9,7 @@ class Tcc extends Model
 {
     use HasFactory;
 
-    protected $fillable = ['id', 'title', 'student', 'location', 'period', 'orientador_id', 'defense_date', 'defense_time'];
+    protected $fillable = ['id', 'title', 'student', 'location', 'period', 'orientador_id', 'defense_date', 'defense_time', 'status'];
     public $incrementing = false;
     protected $keyType = 'string';
 

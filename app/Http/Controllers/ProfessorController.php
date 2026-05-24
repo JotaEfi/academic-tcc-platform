@@ -43,6 +43,7 @@ class ProfessorController extends Controller
                 'location' => $tcc->location,
                 'defense_date' => $tcc->defense_date ? $tcc->defense_date->format('d/m/Y') : null,
                 'defense_time' => $tcc->defense_time,
+                'status' => $tcc->status,
                 'etapa1_completed' => $etapa1 !== null,
                 'etapa2_completed' => $etapa2 !== null,
                 'role' => $isOrientador ? 'orientador' : 'evaluator',
@@ -103,6 +104,10 @@ class ProfessorController extends Controller
 
         if (!$isEvaluator && !$isOrientador) {
             abort(403, 'You are not assigned to evaluate this TCC');
+        }
+
+        if ($tcc->status === 'closed') {
+            return redirect()->back()->with('error', 'O período de avaliação para este TCC está encerrado.');
         }
 
         Evaluation::updateOrCreate(
