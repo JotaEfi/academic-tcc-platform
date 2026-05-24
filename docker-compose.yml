@@ -16,6 +16,7 @@ services:
       APP_KEY: ${APP_KEY}
       APP_URL: http://localhost:8000
     volumes:
+      - .:/var/www/html
       - ./database:/var/www/html/database
       - ./storage:/var/www/html/storage
 
