@@ -18,7 +18,7 @@ declare global {
 window.route = (name, params, absolute, config = window.Ziggy) =>
     route(name, params, absolute, config);
 
-const appName = import.meta.env.VITE_APP_NAME || 'Laravel';
+const appName = import.meta.env.VITE_APP_NAME || 'Avalia TCC';
 
 createInertiaApp({
     title: (title) => (title ? `${title} - ${appName}` : appName),

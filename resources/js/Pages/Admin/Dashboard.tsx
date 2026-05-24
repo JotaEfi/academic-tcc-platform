@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { Head, useForm } from '@inertiajs/react';
+import React, { useState, useEffect } from 'react';
+import { Head, useForm, usePage } from '@inertiajs/react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import {
@@ -15,13 +15,30 @@ import {
   Printer,
   Download
 } from 'lucide-react';
+import AppLayout from '@/layouts/app-layout';
 
 declare global {
   var route: (name: string, params?: any, absolute?: boolean) => string;
 }
 
 export default function AdminDashboard({ tccs, professors }: { tccs: any[], professors: any[] }) {
-  const [activeTab, setActiveTab] = useState('tccs');
+  const { url } = usePage();
+  const getTabFromUrl = () => {
+    const searchParams = new URLSearchParams(url.includes('?') ? url.substring(url.indexOf('?')) : '');
+    return searchParams.get('tab') || 'tccs';
+  };
+
+  const [activeTab, setActiveTab] = useState(getTabFromUrl());
+
+  useEffect(() => {
+    setActiveTab(getTabFromUrl());
+  }, [url]);
+
+  const handleTabChange = (newTab: string) => {
+    setActiveTab(newTab);
+    const newUrl = window.location.pathname + `?tab=${newTab}`;
+    window.history.pushState({}, '', newUrl);
+  };
 
   const { data, setData, post, processing, errors, reset } = useForm({
     csv_file: null as File | null,
@@ -53,31 +70,25 @@ export default function AdminDashboard({ tccs, professors }: { tccs: any[], prof
   const totalEvaluations = tccs.reduce((sum, t) => sum + t.evaluations_count, 0);
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <AppLayout breadcrumbs={[{ title: 'Dashboard', href: route('admin.dashboard') }]}>
       <Head title="Admin Dashboard" />
 
-      {/* Header */}
-      <div className="bg-white border-b border-gray-200">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
-          <div className="flex items-center justify-between">
-            <div>
-              <h1 className="text-3xl font-bold text-gray-900">Dashboard Administrativo</h1>
-              <p className="text-gray-600 mt-1">Gerencie TCCs, professores e avaliações</p>
-            </div>
-            <div className="flex gap-3">
-              <Button
-                onClick={() => window.location.href = route('admin.export')}
-                className="flex items-center gap-2 bg-green-600 hover:bg-green-700 text-white"
-              >
-                <Download className="w-4 h-4" />
-                Exportar CSV
-              </Button>
-            </div>
+      <div className="flex flex-col gap-6 p-4 md:p-8 pt-0">
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-2xl font-bold tracking-tight text-gray-900 dark:text-white">Dashboard Administrativo</h1>
+            <p className="text-sm text-gray-500 mt-1">Gerencie TCCs, professores e avaliações</p>
+          </div>
+          <div className="flex gap-3">
+            <Button
+              onClick={() => window.location.href = route('admin.export')}
+              className="flex items-center gap-2 bg-green-600 hover:bg-green-700 text-white"
+            >
+              <Download className="w-4 h-4" />
+              Exportar CSV
+            </Button>
           </div>
         </div>
-      </div>
-
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {/* Cards de Estatísticas */}
         <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4 mb-8">
           <Card className="shadow-xl border-0 bg-white">
@@ -138,7 +149,7 @@ export default function AdminDashboard({ tccs, professors }: { tccs: any[], prof
           {/* Tab Navigation */}
           <div className="bg-white rounded-lg shadow-xl border-0 p-1 inline-flex gap-1">
             <button
-              onClick={() => setActiveTab('tccs')}
+              onClick={() => handleTabChange('tccs')}
               className={`px-6 py-2 rounded-md text-sm font-medium transition-colors ${activeTab === 'tccs'
                 ? 'bg-gray-900 text-white'
                 : 'text-gray-600 hover:text-gray-900 hover:bg-gray-100'
@@ -147,7 +158,7 @@ export default function AdminDashboard({ tccs, professors }: { tccs: any[], prof
               TCCs
             </button>
             <button
-              onClick={() => setActiveTab('professors')}
+              onClick={() => handleTabChange('professors')}
               className={`px-6 py-2 rounded-md text-sm font-medium transition-colors ${activeTab === 'professors'
                 ? 'bg-gray-900 text-white'
                 : 'text-gray-600 hover:text-gray-900 hover:bg-gray-100'
@@ -156,7 +167,7 @@ export default function AdminDashboard({ tccs, professors }: { tccs: any[], prof
               Professores
             </button>
             <button
-              onClick={() => setActiveTab('import')}
+              onClick={() => handleTabChange('import')}
               className={`px-6 py-2 rounded-md text-sm font-medium transition-colors ${activeTab === 'import'
                 ? 'bg-gray-900 text-white'
                 : 'text-gray-600 hover:text-gray-900 hover:bg-gray-100'
@@ -421,6 +432,6 @@ export default function AdminDashboard({ tccs, professors }: { tccs: any[], prof
           </div>
         </div>
       </div>
-    </div>
+    </AppLayout>
   );
 }

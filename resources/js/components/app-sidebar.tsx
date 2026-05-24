@@ -11,9 +11,9 @@ import {
     SidebarMenuItem,
 } from '@/components/ui/sidebar';
 import { dashboard } from '@/routes';
-import { type NavItem } from '@/types';
-import { Link } from '@inertiajs/react';
-import { BookOpen, Folder, LayoutGrid } from 'lucide-react';
+import { type NavItem, type SharedData } from '@/types';
+import { Link, usePage } from '@inertiajs/react';
+import { BookOpen, Folder, LayoutGrid, FolderOpen, Users, Upload, BarChart3, GraduationCap } from 'lucide-react';
 import AppLogo from './app-logo';
 
 const mainNavItems: NavItem[] = [
@@ -24,20 +24,50 @@ const mainNavItems: NavItem[] = [
     },
 ];
 
-const footerNavItems: NavItem[] = [
-    {
-        title: 'Repository',
-        href: 'https://github.com/laravel/react-starter-kit',
-        icon: Folder,
-    },
-    {
-        title: 'Documentation',
-        href: 'https://laravel.com/docs/starter-kits#react',
-        icon: BookOpen,
-    },
-];
-
 export function AppSidebar() {
+    const { auth } = usePage<SharedData>().props;
+    const role = auth.user?.role;
+
+    let items = mainNavItems;
+
+    if (role === 'admin') {
+        items = [
+            {
+                title: 'Dashboard',
+                href: '/admin/dashboard',
+                icon: LayoutGrid,
+            },
+            {
+                title: 'TCCs',
+                href: '/admin/dashboard?tab=tccs',
+                icon: FolderOpen,
+            },
+            {
+                title: 'Professores',
+                href: '/admin/dashboard?tab=professors',
+                icon: Users,
+            },
+            {
+                title: 'Importar Dados',
+                href: '/admin/dashboard?tab=import',
+                icon: Upload,
+            },
+            {
+                title: 'Ver Resultados',
+                href: '/admin/evaluated-tccs',
+                icon: BarChart3,
+            },
+        ];
+    } else if (role === 'professor') {
+        items = [
+            {
+                title: 'Painel do Professor',
+                href: '/professor/dashboard',
+                icon: GraduationCap,
+            },
+        ];
+    }
+
     return (
         <Sidebar collapsible="icon" variant="inset">
             <SidebarHeader>
@@ -53,11 +83,10 @@ export function AppSidebar() {
             </SidebarHeader>
 
             <SidebarContent>
-                <NavMain items={mainNavItems} />
+                <NavMain items={items} />
             </SidebarContent>
 
             <SidebarFooter>
-                <NavFooter items={footerNavItems} className="mt-auto" />
                 <NavUser />
             </SidebarFooter>
         </Sidebar>
