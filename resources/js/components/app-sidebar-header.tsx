@@ -25,7 +25,7 @@ export function AppSidebarHeader({
 
     return (
         <header className="sticky top-0 z-50 flex h-16 shrink-0 items-center justify-between border-b border-sidebar-border/50 px-6 md:px-4 bg-white dark:bg-neutral-900">
-            <div className="flex items-center gap-6">
+            <div className="flex items-center gap-10">
                 <Link href={dashboard()} prefetch className="flex items-center shrink-0">
                     <AppLogo />
                 </Link>

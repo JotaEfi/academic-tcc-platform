@@ -28,29 +28,35 @@ export function NavMain({ items = [] }: { items: NavItem[] }) {
                     <PanelLeftClose className="w-5 h-5 group-data-[collapsible=icon]:hidden" />
                 </button>
             </div>
-            <SidebarMenu className="gap-0">
-                {items.map((item) => (
-                    <SidebarMenuItem key={item.title} className="border-b border-[#17a8bb] last:border-b-0">
-                        <SidebarMenuButton
-                            asChild
-                            isActive={page.url === resolveUrl(item.href)}
-                            tooltip={{ children: item.title }}
-                            className={page.url === resolveUrl(item.href)
-                                ? 'bg-[#216f7d]! text-white! font-bold rounded-none! h-12 w-full px-4 group-data-[collapsible=icon]:w-full! group-data-[collapsible=icon]:h-12! group-data-[collapsible=icon]:px-0!'
-                                : 'hover:bg-[#216f7d] text-white hover:text-white rounded-none! h-12 w-full px-4 group-data-[collapsible=icon]:w-full! group-data-[collapsible=icon]:h-12! group-data-[collapsible=icon]:px-0! transition-colors'
-                            }
+            <SidebarMenu className="gap-0 m-0 p-0">
+                {items.map((item) => {
+                    const isActive = page.url === resolveUrl(item.href);
+                    return (
+                        <SidebarMenuItem 
+                            key={item.title} 
+                            className={`border-b border-[#17a8bb] last:border-b-0 m-0 p-0 ${isActive ? 'bg-[#216f7d]' : 'hover:bg-[#216f7d] transition-colors'}`}
                         >
-                            <Link
-                                href={item.href}
-                                prefetch
-                                className="flex items-center w-full h-full gap-3 group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:gap-0"
+                            <SidebarMenuButton
+                                asChild
+                                isActive={isActive}
+                                tooltip={{ children: item.title }}
+                                className={isActive
+                                    ? 'bg-transparent! text-white! font-bold rounded-none! h-14! w-full px-4 group-data-[collapsible=icon]:w-full! group-data-[collapsible=icon]:h-14! group-data-[collapsible=icon]:px-0! hover:bg-transparent!'
+                                    : 'bg-transparent! hover:bg-transparent! text-white hover:text-white rounded-none! h-14! w-full px-4 group-data-[collapsible=icon]:w-full! group-data-[collapsible=icon]:h-14! group-data-[collapsible=icon]:px-0!'
+                                }
                             >
-                                {item.icon && <item.icon className="w-5 h-5 shrink-0 group-data-[collapsible=icon]:!w-6 group-data-[collapsible=icon]:!h-6" />}
-                                <span className="text-sm group-data-[collapsible=icon]:hidden">{item.title}</span>
-                            </Link>
-                        </SidebarMenuButton>
-                    </SidebarMenuItem>
-                ))}
+                                <Link
+                                    href={item.href}
+                                    prefetch
+                                    className="flex items-center w-full h-full gap-3 group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:gap-0"
+                                >
+                                    {item.icon && <item.icon className="w-5 h-5 shrink-0 group-data-[collapsible=icon]:!w-6 group-data-[collapsible=icon]:!h-6" />}
+                                    <span className="text-sm group-data-[collapsible=icon]:hidden">{item.title}</span>
+                                </Link>
+                            </SidebarMenuButton>
+                        </SidebarMenuItem>
+                    );
+                })}
             </SidebarMenu>
         </SidebarGroup>
     );
