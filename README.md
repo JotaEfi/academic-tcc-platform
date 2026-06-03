@@ -43,6 +43,21 @@ Modal interativo para atualizar as informações de cadastro do aluno (Nome, E-m
 
 ![Edição de Aluno](docs/screenshots/edit_student.png)
 
+### 8. Cadastro Manual de TCCs e Atribuição de Bancas
+A página de **Importar TCCs** agora oferece duas abas de trabalho: importação em lote por planilha CSV ou cadastro manual detalhado. O administrador pode preencher todas as informações do trabalho, associar um professor orientador e selecionar com flexibilidade os professores que irão compor a banca avaliadora.
+
+![Cadastro Manual de TCCs](docs/screenshots/import_tcc_manual.png)
+
+### 9. Painel do Professor - Bancas de TCC
+Acesso dedicado para os docentes acompanharem o andamento, os dados e realizarem o lançamento de notas das etapas 1 e 2 das bancas em que participam ou orientam.
+
+![Painel do Professor - Bancas de TCC](docs/screenshots/professor_tcc_boards.png)
+
+### 10. Painel do Professor - Gestão de Notas e Cálculo de Média
+Dentro do menu **Minhas Turmas**, os docentes têm total controle sobre o diário de classe. É possível cadastrar avaliações (provas, projetos e trabalhos) de forma dinâmica, atribuir notas diretamente aos alunos, e definir fórmulas matemáticas customizadas para o cálculo automático da média final em tempo real.
+
+![Painel do Professor - Gestão de Notas](docs/screenshots/professor_grades_formula.png)
+
 ---
 
 ## 🚀 Início Rápido (Desenvolvimento Local)
