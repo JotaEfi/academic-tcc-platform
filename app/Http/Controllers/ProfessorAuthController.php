@@ -15,19 +15,30 @@ class ProfessorAuthController extends Controller
 
     public function store(Request $request)
     {
+        $request->merge([
+            'name' => trim($request->input('name', '')),
+            'password' => trim($request->input('password', '')),
+        ]);
+
         $credentials = $request->validate([
             'name' => ['required', 'string'],
             'password' => ['required', 'string'],
         ]);
 
-        if (Auth::attempt(['name' => $credentials['name'], 'password' => $credentials['password'], 'role' => 'professor'])) {
+        $loginField = filter_var($credentials['name'], FILTER_VALIDATE_EMAIL) ? 'email' : 'name';
+
+        if (Auth::attempt([
+            $loginField => $credentials['name'],
+            'password' => $credentials['password'],
+            'role' => 'professor'
+        ])) {
             $request->session()->regenerate();
 
             return redirect()->intended(route('professor.dashboard'));
         }
 
         return back()->withErrors([
-            'name' => 'The provided credentials do not match our records.',
+            'name' => 'As credenciais fornecidas não correspondem aos nossos registros.',
         ]);
     }
 

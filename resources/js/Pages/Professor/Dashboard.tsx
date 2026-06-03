@@ -1,5 +1,5 @@
 import React from 'react';
-import { Head, Link } from '@inertiajs/react';
+import { Head, Link, router } from '@inertiajs/react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import {
@@ -13,7 +13,7 @@ import {
   LogOut,
   Calendar
 } from 'lucide-react';
-import { router } from '@inertiajs/react';
+import AppLayout from '@/layouts/app-layout';
 
 declare global {
   var route: (name: string, params?: any, absolute?: boolean) => string;
@@ -26,33 +26,20 @@ export default function ProfessorDashboard({ tccs }: { tccs: any[] }) {
   const progress = tccs.length > 0 ? (fullyEvaluatedCount / tccs.length) * 100 : 0;
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      <Head title="Professor Dashboard" />
+    <AppLayout breadcrumbs={[{ title: 'Bancas de TCC', href: route('professor.dashboard') }]}>
+      <Head title="Bancas de TCC - Portal do Professor" />
 
-      {/* Header */}
-      <div className="bg-white border-b border-gray-200">
-        <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-4 sm:py-6">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <div className="bg-gray-900 rounded-xl p-2 sm:p-3">
-                <GraduationCap className="w-5 h-5 sm:w-6 sm:h-6 text-white" />
-              </div>
-              <div>
-                <h1 className="text-xl sm:text-2xl font-bold text-gray-900">Painel do Professor</h1>
-                <p className="text-xs sm:text-sm text-gray-600">TCCs para avaliação</p>
-              </div>
-            </div>
-            <Button
-              onClick={() => router.post(route('professor.logout'))}
-              className="bg-white text-gray-700 border border-gray-300 hover:bg-gray-50"
-            >
-              <LogOut className="w-4 h-4" />
-            </Button>
-          </div>
+      <div className="flex flex-col gap-6 p-4 md:p-8 pt-0 max-w-6xl mx-auto">
+        <div>
+          <h1 className="text-2xl font-bold tracking-tight text-gray-900 dark:text-white">
+            Bancas de TCC para Avaliação
+          </h1>
+          <p className="text-sm text-gray-500 mt-1">
+            Acompanhe as defesas designadas e registre as avaliações de Etapa 1 e Etapa 2.
+          </p>
         </div>
-      </div>
 
-      <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-4 sm:py-6 space-y-4 sm:space-y-6">
+        <div className="space-y-6">
         {/* Cards de Estatísticas */}
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
           <Card className="shadow-xl border-0 bg-white">
@@ -260,6 +247,7 @@ export default function ProfessorDashboard({ tccs }: { tccs: any[] }) {
           </div>
         )}
       </div>
-    </div>
+      </div>
+    </AppLayout>
   );
 }

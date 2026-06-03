@@ -8,31 +8,59 @@ services:
     restart: unless-stopped
     ports:
       - "8000:80"
+    depends_on:
+      db:
+        condition: service_healthy
     environment:
-      DB_CONNECTION: sqlite
-      DB_DATABASE: /var/www/html/database/database.sqlite
+      DB_CONNECTION: pgsql
+      DB_HOST: db
+      DB_PORT: 5432
+      DB_DATABASE: tcc_database
+      DB_USERNAME: tcc_user
+      DB_PASSWORD: tcc_password
+      SESSION_DRIVER: file
+      CACHE_STORE: file
       APP_ENV: local
       APP_DEBUG: true
       APP_KEY: ${APP_KEY}
       APP_URL: http://localhost:8000
     volumes:
-      - .:/var/www/html
-      - ./database:/var/www/html/database
-      - ./storage:/var/www/html/storage
+      # Volume nomeado — arquivos ficam DENTRO do WSL2 (sem tradução NTFS)
+      - app-code:/var/www/html
+      # Storage e database em volumes nomeados para persistência
+      - app-storage:/var/www/html/storage
+      - app-database:/var/www/html/database
 
-#  db:
-#    image: postgres:15-alpine
-#    container_name: amostra-pi-db
+  db:
+    image: postgres:15-alpine
+    container_name: amostra-pi-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: tcc_database
+      POSTGRES_USER: tcc_user
+      POSTGRES_PASSWORD: tcc_password
+    volumes:
+      - db-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U tcc_user -d tcc_database"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+#  pgadmin:
+#    image: dpage/pgadmin4
+#    container_name: amostra-pi-pgadmin
 #    restart: unless-stopped
 #    environment:
-#      POSTGRES_DB: ${DB_DATABASE}
-#      POSTGRES_USER: ${DB_USERNAME}
-#      POSTGRES_PASSWORD: ${DB_PASSWORD}
-#    volumes:
-#      - db-data:/var/lib/postgresql/data
-#    healthcheck:
-#      test: ["CMD-SHELL", "pg_isready -U ${DB_USERNAME} -d ${DB_DATABASE}"]
-#      interval: 5s
-#      timeout: 5s
-#      retries: 5
+#      PGADMIN_DEFAULT_EMAIL: admin@admin.com
+#      PGADMIN_DEFAULT_PASSWORD: admin
+#    ports:
+#      - "5050:80"
+#    depends_on:
+#      - db
 
+volumes:
+  db-data:
+  app-code:
+  app-storage:
+  app-database:

@@ -357,8 +357,9 @@ class AdminController extends Controller
     public function professors()
     {
         $professors = \App\Models\User::where('role', 'professor')
-            ->select('id', 'name', 'temp_password', 'access_token')
-            ->get();
+            ->select('id', 'name', 'email', 'temp_password', 'access_token')
+            ->get()
+            ->makeVisible(['temp_password', 'access_token', 'email']);
 
         return Inertia::render('Admin/Professors', [
             'professors' => $professors,
@@ -369,14 +370,15 @@ class AdminController extends Controller
     {
         $request->validate([
             'name' => 'required|string|max:255',
+            'email' => 'required|email|unique:users,email',
+            'password' => 'nullable|string|min:6',
         ]);
 
-        $email = strtolower(\Illuminate\Support\Str::slug($request->name, '.')) . '@example.com';
-        $tempPassword = \Illuminate\Support\Str::random(8);
+        $tempPassword = $request->filled('password') ? $request->password : \Illuminate\Support\Str::random(8);
 
         \App\Models\User::create([
             'name' => $request->name,
-            'email' => $email,
+            'email' => $request->email,
             'password' => bcrypt($tempPassword),
             'temp_password' => $tempPassword,
             'role' => 'professor',
@@ -387,17 +389,25 @@ class AdminController extends Controller
 
     public function updateProfessor(Request $request, $id)
     {
+        $professor = \App\Models\User::findOrFail($id);
+
         $request->validate([
             'name' => 'required|string|max:255',
+            'email' => 'required|email|unique:users,email,' . $professor->id,
+            'password' => 'nullable|string|min:6',
         ]);
 
-        $professor = \App\Models\User::findOrFail($id);
-        
-        // If name changed, we could update the email, but it's better to keep it stable.
-        // We'll just update the name.
-        $professor->update([
+        $data = [
             'name' => $request->name,
-        ]);
+            'email' => $request->email,
+        ];
+
+        if ($request->filled('password')) {
+            $data['password'] = bcrypt($request->password);
+            $data['temp_password'] = $request->password;
+        }
+
+        $professor->update($data);
 
         return redirect()->back()->with('success', 'Professor atualizado com sucesso!');
     }
@@ -422,9 +432,57 @@ class AdminController extends Controller
     public function showImport()
     {
         $availablePeriods = \App\Models\Tcc::whereNotNull('period')->distinct()->pluck('period')->filter()->values();
+        $professors = \App\Models\User::where('role', 'professor')
+            ->select('id', 'name')
+            ->orderBy('name')
+            ->get();
+
         return Inertia::render('Admin/Import', [
-            'availablePeriods' => $availablePeriods
+            'availablePeriods' => $availablePeriods,
+            'professors' => $professors,
         ]);
+    }
+
+    public function storeTcc(Request $request)
+    {
+        $request->validate([
+            'tcc_id' => 'required|string|max:50',
+            'title' => 'required|string|max:255',
+            'student' => 'required|string|max:255',
+            'period' => 'required|string|max:20',
+            'orientador_id' => 'required|exists:users,id',
+            'evaluators' => 'nullable|array',
+            'evaluators.*' => 'exists:users,id',
+            'location' => 'required|string|max:255',
+            'defense_date' => 'nullable|date',
+            'defense_time' => 'nullable|string|max:255',
+        ]);
+
+        $studentSlug = \Illuminate\Support\Str::slug($request->student);
+        $periodSlug = \Illuminate\Support\Str::slug($request->period);
+        $tccId = $request->tcc_id . '-' . substr($studentSlug, 0, 15) . '-' . $periodSlug;
+
+        if (\App\Models\Tcc::where('id', $tccId)->exists()) {
+            return redirect()->back()->withErrors(['tcc_id' => 'Já existe um TCC cadastrado para este aluno neste período com este código.']);
+        }
+
+        $tcc = \App\Models\Tcc::create([
+            'id' => $tccId,
+            'title' => $request->title,
+            'student' => $request->student,
+            'location' => $request->location,
+            'period' => $request->period,
+            'orientador_id' => $request->orientador_id,
+            'defense_date' => $request->defense_date,
+            'defense_time' => $request->defense_time,
+            'status' => 'open',
+        ]);
+
+        if (!empty($request->evaluators)) {
+            $tcc->evaluators()->sync($request->evaluators);
+        }
+
+        return redirect()->back()->with('success', 'TCC cadastrado manualmente com sucesso!');
     }
 
     public function import(Request $request)
@@ -611,7 +669,7 @@ class AdminController extends Controller
     }
     public function export()
     {
-        $tccs = Tcc::with(['evaluations', 'orientador', 'evaluators'])->get()->map(function ($tcc) {
+        $tccs = Tcc::with(['evaluations.user', 'orientador', 'evaluators'])->get()->map(function ($tcc) {
             // Calculate averages per stage
             $etapa1Evals = $tcc->evaluations->where('stage', 'etapa1');
             $etapa2Evals = $tcc->evaluations->where('stage', 'etapa2');
@@ -619,9 +677,8 @@ class AdminController extends Controller
             $etapa1Avg = 0;
             if ($etapa1Evals->count() > 0) {
                 $totalGrade = $etapa1Evals->sum(function ($ev) {
-                    $scores = $ev->scores;
-                    if (empty($scores)) return 0;
-                    return array_sum($scores) / count($scores);
+                    $score = $ev->etapa1Score();
+                    return $score !== null ? $score : 0;
                 });
                 $etapa1Avg = $totalGrade / $etapa1Evals->count();
             }
@@ -629,14 +686,41 @@ class AdminController extends Controller
             $etapa2Avg = 0;
             if ($etapa2Evals->count() > 0) {
                 $totalGrade = $etapa2Evals->sum(function ($ev) {
-                    $scores = $ev->scores;
-                    if (empty($scores)) return 0;
-                    return array_sum($scores) / count($scores);
+                    $score = $ev->etapa2Score();
+                    return $score !== null ? $score : 0;
                 });
                 $etapa2Avg = $totalGrade / $etapa2Evals->count();
             }
             
-            $finalAvg = ($etapa1Avg + $etapa2Avg) / 2;
+            // Calculate final average based on weighted formula per evaluator (70% Stage 1, 30% Stage 2)
+            $evaluationsByUser = $tcc->evaluations->groupBy('user_id');
+            $allEvaluators = $tcc->evaluators;
+            if ($tcc->orientador && !$allEvaluators->contains('id', $tcc->orientador->id)) {
+                $allEvaluators = $allEvaluators->concat(collect([$tcc->orientador]));
+            }
+
+            $professorGrades = $allEvaluators->map(function ($evaluator) use ($evaluationsByUser) {
+                $evaluationsByProfessor = $evaluationsByUser->get($evaluator->id, collect());
+
+                $etapa1Eval = $evaluationsByProfessor->firstWhere('stage', 'etapa1');
+                $etapa2Eval = $evaluationsByProfessor->firstWhere('stage', 'etapa2');
+
+                $etapa1Grade = $etapa1Eval ? $etapa1Eval->etapa1Score() : null;
+                $etapa2Grade = $etapa2Eval ? $etapa2Eval->etapa2Score() : null;
+
+                $final = null;
+                if ($etapa1Grade !== null && $etapa2Grade !== null) {
+                    $final = ($etapa1Grade * 0.7) + ($etapa2Grade * 0.3);
+                } elseif ($etapa1Grade !== null) {
+                    $final = $etapa1Grade;
+                } elseif ($etapa2Grade !== null) {
+                    $final = $etapa2Grade;
+                }
+
+                return $final;
+            })->filter(fn($val) => $val !== null);
+
+            $finalAvg = $professorGrades->count() > 0 ? $professorGrades->average() : 0;
             
             return [
                 'id' => $tcc->id,

@@ -1,0 +1,76 @@
+# docker-compose.prod.yml — Para deploy em VPS/Servidor Linux
+#
+# Diferenças em relação ao docker-compose.yml (local):
+# - SEM volume de código: o código vive dentro da imagem (multi-stage Dockerfile)
+# - APP_ENV=production, APP_DEBUG=false
+# - Variáveis de banco via arquivo .env do servidor (não hardcoded)
+# - Volumes apenas para dados persistentes: banco, storage e logs
+# - Nginx escuta na 80 diretamente (sem mapeamento extra)
+#
+# Como usar na VPS:
+#   docker compose -f docker-compose.prod.yml up -d --build
+
+services:
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: avalia-tcc-app:${IMAGE_TAG:-latest}
+    container_name: avalia-tcc-app
+    restart: unless-stopped
+    ports:
+      - "80:80"
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      DB_CONNECTION: pgsql
+      DB_HOST: db
+      DB_PORT: 5432
+      DB_DATABASE: ${DB_DATABASE}
+      DB_USERNAME: ${DB_USERNAME}
+      DB_PASSWORD: ${DB_PASSWORD}
+      SESSION_DRIVER: file
+      CACHE_STORE: file
+      APP_ENV: production
+      APP_DEBUG: "false"
+      APP_KEY: ${APP_KEY}
+      APP_URL: ${APP_URL}
+    volumes:
+      # SEM volume de código — o código está dentro da imagem Docker
+      # Apenas dados que precisam persistir entre deploys:
+      - app-storage:/var/www/html/storage
+      - app-database:/var/www/html/database
+
+  db:
+    image: postgres:15-alpine
+    container_name: amostra-pi-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${DB_DATABASE}
+      POSTGRES_USER: ${DB_USERNAME}
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
+    volumes:
+      - db-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USERNAME} -d ${DB_DATABASE}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+#  pgadmin:
+#    image: dpage/pgadmin4
+#    container_name: amostra-pi-pgadmin
+#    restart: unless-stopped
+#    environment:
+#      PGADMIN_DEFAULT_EMAIL: admin@admin.com
+#      PGADMIN_DEFAULT_PASSWORD: admin
+#    ports:
+#      - "5050:80"
+#    depends_on:
+#      - db
+
+volumes:
+  db-data:
+  app-storage:
+  app-database:

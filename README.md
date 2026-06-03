@@ -1,86 +1,144 @@
 # Sistema de Gerenciamento e Avaliação de TCCs
 
-Sistema web desenvolvido para gerenciar e avaliar Trabalhos de Conclusão de Curso (TCCs). A aplicação permite que administradores gerenciem TCCs, professores e avaliações, enquanto professores realizam avaliações de bancas e de seus orientandos.
+Sistema web para gerenciar e avaliar Trabalhos de Conclusão de Curso (TCCs) e disciplinas acadêmicas. Permite que administradores gerenciem TCCs e professores, enquanto docentes realizam avaliações de bancas e orientandos.
 
-## 🚀 Funcionalidades
+**Stack:** Laravel 12 · React 19 · TypeScript · Inertia.js · Tailwind CSS 4 · PostgreSQL · Docker · Nginx
+
+---
+
+## 🚀 Início Rápido (Desenvolvimento Local)
+
+### Pré-requisitos
+- [Docker Desktop](https://www.docker.com/products/docker-desktop/) instalado e em execução
+
+### 1. Clonar e configurar o ambiente
+
+```bash
+git clone <url-do-repositorio>
+cd tcc-platform-remake
+
+cp .env.example .env
+```
+
+### 2. Gerar o APP_KEY
+
+O `APP_KEY` é obrigatório para criptografia de sessões e cookies. Gere um e coloque no `.env`:
+
+```bash
+# Opção A — se tiver PHP instalado localmente:
+php -r "echo 'APP_KEY=base64:' . base64_encode(random_bytes(32)) . PHP_EOL;"
+
+# Opção B — usando o Docker (sem PHP local):
+docker run --rm php:8.3-alpine php -r "echo 'APP_KEY=base64:' . base64_encode(random_bytes(32)) . PHP_EOL;"
+```
+
+> **Atenção:** Se você não definir o `APP_KEY` no `.env`, o container irá gerar um automaticamente e exibirá no log. Copie-o e adicione ao `.env` para que ele persista entre restarts.
+
+### 3. Subir os containers
+
+```bash
+docker compose up -d --build
+```
+
+O container irá automaticamente:
+- ✅ Aguardar o banco de dados ficar disponível
+- ✅ Executar as migrations
+- ✅ Popular o banco com dados iniciais (seed) na primeira execução
+- ✅ Cachear configurações, rotas e views
+
+### 4. Acessar a aplicação
+
+- **URL:** http://localhost:8000
+- **Admin:** `admin@example.com` / `password`
+
+---
+
+## 🖥️ Deploy em VPS/Produção
+
+### Pré-requisitos
+- Docker Engine + Docker Compose instalados no servidor
+- Porta 80 liberada no firewall
+
+```bash
+# 1. Clonar o repositório no servidor
+git clone <url-do-repositorio>
+cd tcc-platform-remake
+
+# 2. Criar e configurar o .env
+cp .env.example .env
+nano .env
+```
+
+Variáveis obrigatórias para produção:
+
+```env
+APP_KEY=base64:...          # Gere com o comando acima
+APP_URL=https://seusite.com.br
+APP_ENV=production
+APP_DEBUG=false
+
+DB_DATABASE=tcc_database
+DB_USERNAME=tcc_user
+DB_PASSWORD=sua_senha_segura
+```
+
+```bash
+# 3. Subir com o compose de produção
+docker compose -f docker-compose.prod.yml up -d --build
+```
+
+### Atualizando a aplicação na VPS
+
+```bash
+git pull
+docker compose -f docker-compose.prod.yml up -d --build
+# O entrypoint executa as migrations automaticamente
+```
+
+---
+
+## 📦 Comandos Disponíveis (Makefile)
+
+```bash
+make setup          # Build completo + up + migrations + seed
+make up             # Subir containers
+make down           # Parar containers
+make rebuild        # Rebuild completo da imagem
+make logs           # Ver logs em tempo real
+make bash           # Terminal dentro do container
+make db-shell       # Shell do PostgreSQL
+make build-assets   # Compilar assets frontend (Vite) dentro do container
+make cache-clear    # Limpar todos os caches do Laravel
+make prune          # Remover containers, imagens e volumes não usados
+```
+
+---
+
+## 🏗️ Arquitetura Docker
+
+| Arquivo | Ambiente | Observação |
+|---|---|---|
+| `docker-compose.yml` | Desenvolvimento local | Volumes nomeados — sem bind mount NTFS |
+| `docker-compose.prod.yml` | VPS / Produção | Código dentro da imagem, sem volumes de código |
+| `Dockerfile` | Ambos | Multi-stage: Node 20 → Composer 2 → PHP 8.3 Alpine |
+
+---
+
+## 👥 Funcionalidades
 
 ### 👑 Administrador
-- **Dashboard**: Visão geral com estatísticas de TCCs e avaliações.
-- **Importação de TCCs**: Importação em massa via arquivo CSV (formato específico com Orientador e Banca).
-- **Gestão de Professores**: Criação automática de contas para professores e geração de senhas temporárias.
-- **Relatórios**: Visualização detalhada dos TCCs avaliados com médias por etapa (Etapa 1 e Etapa 2) e média final.
-- **Exportação**: Exportação dos resultados finais em CSV.
+- Dashboard com estatísticas gerais
+- Importação de TCCs via CSV
+- Gestão de professores e turmas
+- Relatórios com médias por etapa e média final
+- Exportação de resultados em CSV
 
 ### 👨‍🏫 Professor
-- **Login Simplificado**: Acesso via nome e senha temporária.
-- **Dashboard**:
-    - Lista de TCCs atribuídos (Banca Avaliadora e Orientandos).
-    - Status de avaliação por etapa (Etapa 1 e Etapa 2).
-    - Identificação visual de papel (Avaliador ou Orientador).
-- **Avaliação**:
-    - Formulário para avaliar TCCs nas duas etapas.
-    - Acesso permitido para membros da banca e orientadores.
+- Login via nome ou e-mail + senha
+- Lista de TCCs atribuídos (banca e orientandos)
+- Avaliação de TCCs nas etapas 1 e 2
 
-## 🛠️ Tecnologias Utilizadas
-
-- **Backend**: Laravel 12, PHP 8.3
-- **Frontend**: React 19, Inertia.js 2.0, TypeScript
-- **Estilização**: Tailwind CSS 4, Shadcn UI
-- **Banco de Dados**: PostgreSQL
-- **Infraestrutura**: Docker, Nginx, Supervisor
-
-## 🐳 Pré-requisitos
-
-- [Docker](https://www.docker.com/get-started)
-- [Docker Compose](https://docs.docker.com/compose/install/)
-
-## ⚡ Como Rodar o Projeto
-
-1. **Clone o repositório**
-   ```bash
-   git clone https://github.com/seu-usuario/tcc-system.git
-   cd tcc-system
-   ```
-
-2. **Configure as Variáveis de Ambiente**
-   Copie o arquivo de exemplo:
-   ```bash
-   cp .env.example .env
-   ```
-   
-   Certifique-se de que o `.env` contenha as configurações do Docker (DB_HOST=db, etc.).
-
-3. **Inicie o Ambiente**
-   Utilize o Docker Compose para construir e iniciar os containers:
-   ```bash
-   docker compose build
-   docker compose up -d
-   ```
-
-4. **Prepare o Banco de Dados**
-   Rode as migrações e seeds:
-   ```bash
-   docker compose exec app php artisan migrate --seed
-   ```
-
-5. **Acesse a Aplicação**
-   - URL: [http://localhost:8000](http://localhost:8000)
-
-## 📦 Comandos Úteis
-
-| Comando | Descrição |
-|---------|-----------|
-| `docker compose up -d` | Inicia os containers em background |
-| `docker compose down` | Para e remove os containers |
-| `docker compose build` | Reconstrói as imagens (necessário após alterações no frontend/backend) |
-| `docker compose exec app bash` | Acessa o terminal do container da aplicação |
-
-## 🧪 Usuários de Teste (Seed)
-
-O comando `php artisan db:seed` cria usuários iniciais:
-
-- **Admin**: `admin@example.com` / `password`
-- **Professores**: Verifique no Dashboard do Admin (menu "Professores").
+---
 
 ## 📝 Licença
 

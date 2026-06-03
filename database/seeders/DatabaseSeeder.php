@@ -24,5 +24,6 @@ class DatabaseSeeder extends Seeder
         );
 
         $this->call(TccEvaluationSeeder::class);
+        $this->call(AcademicSeeder::class);
     }
 }

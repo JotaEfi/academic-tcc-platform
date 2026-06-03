@@ -38,6 +38,23 @@ class HandleInertiaRequests extends Middleware
     {
         [$message, $author] = str(Inspiring::quotes()->random())->explode('-');
 
+        // Get or initialize active course_id in session
+        $courseId = $request->session()->get('course_id', 'si');
+
+        // Robust course list fetch with fallback
+        $courses = [];
+        try {
+            $courses = \App\Models\Course::all()->toArray();
+        } catch (\Exception $e) {
+            // Silence table not found errors before migrations run
+        }
+        if (empty($courses)) {
+            $courses = [
+                ['id' => 'si', 'name' => 'Sistemas de Informação'],
+                ['id' => 'ads', 'name' => 'Análise e Des. de Sistemas'],
+            ];
+        }
+
         return [
             ...parent::share($request),
             'name' => config('app.name'),
@@ -50,6 +67,9 @@ class HandleInertiaRequests extends Middleware
                 'error' => $request->session()->get('error'),
             ],
             'sidebarOpen' => ! $request->hasCookie('sidebar_state') || $request->cookie('sidebar_state') === 'true',
+            'course_id' => $courseId,
+            'courses' => $courses,
+            'academic_nomenclatures' => config('academic.nomenclatures', []),
         ];
     }
 }

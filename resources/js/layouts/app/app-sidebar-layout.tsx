@@ -11,11 +11,11 @@ export default function AppSidebarLayout({
 }: PropsWithChildren<{ breadcrumbs?: BreadcrumbItem[] }>) {
     return (
         <AppShell variant="sidebar">
-            <div className="flex flex-col min-h-screen w-full">
-                <AppSidebarHeader breadcrumbs={breadcrumbs} />
-                <div className="flex flex-1 w-full overflow-hidden">
-                    <AppSidebar />
-                    <AppContent variant="sidebar" className="overflow-x-hidden">
+            <div className="flex min-h-screen w-full overflow-hidden bg-neutral-50 dark:bg-neutral-950">
+                <AppSidebar />
+                <div className="flex-1 flex flex-col min-h-screen overflow-hidden">
+                    <AppSidebarHeader breadcrumbs={breadcrumbs} />
+                    <AppContent variant="sidebar" className="overflow-x-hidden flex-1">
                         {children}
                     </AppContent>
                 </div>

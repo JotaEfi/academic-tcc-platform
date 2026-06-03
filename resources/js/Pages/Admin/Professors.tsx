@@ -18,9 +18,21 @@ declare global {
   var route: (name: string, params?: any, absolute?: boolean) => string;
 }
 
+const strToEmail = (str: string) => {
+  return str
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '') // remove accents
+    .replace(/[^a-z0-9.]/g, '.') // replace non-alphanumeric with dot
+    .replace(/\.+/g, '.') // collapse dots
+    .replace(/(^\.|\.$)/g, '') // trim dots
+    + '@example.com';
+};
+
 interface Professor {
   id: number;
   name: string;
+  email: string;
   temp_password: string | null;
   access_token: string | null;
 }
@@ -31,11 +43,19 @@ export default function ProfessorsPage({ professors }: { professors: Professor[]
 
   // Create Modal State
   const [isCreateOpen, setIsCreateOpen] = useState(false);
-  const createForm = useForm({ name: '' });
+  const createForm = useForm({
+    name: '',
+    email: '',
+    password: '',
+  });
 
   // Edit Modal State
   const [editingProf, setEditingProf] = useState<Professor | null>(null);
-  const editForm = useForm({ name: '' });
+  const editForm = useForm({
+    name: '',
+    email: '',
+    password: '',
+  });
 
   // Delete Modal State
   const [deletingProf, setDeletingProf] = useState<Professor | null>(null);
@@ -54,7 +74,11 @@ export default function ProfessorsPage({ professors }: { professors: Professor[]
 
   const openEdit = (prof: Professor) => {
     setEditingProf(prof);
-    editForm.setData('name', prof.name);
+    editForm.setData({
+      name: prof.name,
+      email: prof.email || '',
+      password: '',
+    });
   };
 
   const handleEdit = (e: React.FormEvent) => {
@@ -116,6 +140,7 @@ export default function ProfessorsPage({ professors }: { professors: Professor[]
                 <thead>
                   <tr className="border-b border-gray-200">
                     <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Nome</th>
+                    <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">E-mail</th>
                     <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Senha Temporária</th>
                     <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Acesso</th>
                     <th className="px-4 py-3 text-right text-xs font-semibold text-gray-600 uppercase tracking-wider">Ações</th>
@@ -126,6 +151,7 @@ export default function ProfessorsPage({ professors }: { professors: Professor[]
                     professors.map((prof) => (
                       <tr key={prof.id} className="hover:bg-gray-50 transition-colors">
                         <td className="px-4 py-4 text-sm font-medium text-gray-900">{prof.name}</td>
+                        <td className="px-4 py-4 text-sm text-gray-500">{prof.email}</td>
                         <td className="px-4 py-4">
                           <div className="flex items-center gap-2">
                             <Key className="w-4 h-4 text-gray-400" />
@@ -168,7 +194,7 @@ export default function ProfessorsPage({ professors }: { professors: Professor[]
                     ))
                   ) : (
                     <tr>
-                      <td colSpan={4} className="px-4 py-8 text-center text-gray-500">
+                      <td colSpan={5} className="px-4 py-8 text-center text-gray-500">
                         Nenhum professor cadastrado
                       </td>
                     </tr>
@@ -181,12 +207,15 @@ export default function ProfessorsPage({ professors }: { professors: Professor[]
       </div>
 
       {/* CREATE MODAL */}
-      <Dialog open={isCreateOpen} onOpenChange={setIsCreateOpen}>
+      <Dialog open={isCreateOpen} onOpenChange={(open) => {
+        setIsCreateOpen(open);
+        if (!open) createForm.reset();
+      }}>
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Novo Professor</DialogTitle>
             <DialogDescription>
-              O sistema criará automaticamente um e-mail de acesso e uma senha temporária.
+              Defina as credenciais de acesso para o novo professor.
             </DialogDescription>
           </DialogHeader>
           <form onSubmit={handleCreate} className="space-y-4 pt-4">
@@ -195,15 +224,48 @@ export default function ProfessorsPage({ professors }: { professors: Professor[]
               <Input
                 id="name"
                 value={createForm.data.name}
-                onChange={e => createForm.setData('name', e.target.value)}
+                onChange={e => {
+                  const newName = e.target.value;
+                  createForm.setData(data => ({
+                    ...data,
+                    name: newName,
+                    email: data.email === '' || data.email === strToEmail(data.name) ? strToEmail(newName) : data.email
+                  }));
+                }}
                 placeholder="Ex: Prof. Dr. João Silva"
                 required
               />
               {createForm.errors.name && <p className="text-sm text-red-500">{createForm.errors.name}</p>}
             </div>
+
+            <div className="space-y-2">
+              <label htmlFor="email" className="text-sm font-medium">E-mail</label>
+              <Input
+                id="email"
+                type="email"
+                value={createForm.data.email}
+                onChange={e => createForm.setData('email', e.target.value)}
+                placeholder="Ex: joao.silva@example.com"
+                required
+              />
+              {createForm.errors.email && <p className="text-sm text-red-500">{createForm.errors.email}</p>}
+            </div>
+
+            <div className="space-y-2">
+              <label htmlFor="password" className="text-sm font-medium">Senha Temporária (Opcional)</label>
+              <Input
+                id="password"
+                type="text"
+                value={createForm.data.password}
+                onChange={e => createForm.setData('password', e.target.value)}
+                placeholder="Gerada automaticamente se vazio"
+              />
+              {createForm.errors.password && <p className="text-sm text-red-500">{createForm.errors.password}</p>}
+            </div>
+
             <DialogFooter>
               <Button type="button" variant="outline" onClick={() => setIsCreateOpen(false)}>Cancelar</Button>
-              <Button type="submit" className="bg-[#216f7d] hover:bg-[#1a5b67]" disabled={createForm.processing}>
+              <Button type="submit" className="bg-[#216f7d] hover:bg-[#1a5b67] text-white" disabled={createForm.processing}>
                 {createForm.processing ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : null}
                 Salvar
               </Button>
@@ -218,7 +280,7 @@ export default function ProfessorsPage({ professors }: { professors: Professor[]
           <DialogHeader>
             <DialogTitle>Editar Professor</DialogTitle>
             <DialogDescription>
-              Altere o nome do professor. Isso não mudará o login dele se ele já tiver acessado.
+              Altere os dados de cadastro e a senha do professor.
             </DialogDescription>
           </DialogHeader>
           <form onSubmit={handleEdit} className="space-y-4 pt-4">
@@ -232,9 +294,34 @@ export default function ProfessorsPage({ professors }: { professors: Professor[]
               />
               {editForm.errors.name && <p className="text-sm text-red-500">{editForm.errors.name}</p>}
             </div>
+
+            <div className="space-y-2">
+              <label htmlFor="edit_email" className="text-sm font-medium">E-mail</label>
+              <Input
+                id="edit_email"
+                type="email"
+                value={editForm.data.email}
+                onChange={e => editForm.setData('email', e.target.value)}
+                required
+              />
+              {editForm.errors.email && <p className="text-sm text-red-500">{editForm.errors.email}</p>}
+            </div>
+
+            <div className="space-y-2">
+              <label htmlFor="edit_password" className="text-sm font-medium">Definir Nova Senha (Opcional)</label>
+              <Input
+                id="edit_password"
+                type="text"
+                value={editForm.data.password}
+                onChange={e => editForm.setData('password', e.target.value)}
+                placeholder="Deixe em branco para não alterar"
+              />
+              {editForm.errors.password && <p className="text-sm text-red-500">{editForm.errors.password}</p>}
+            </div>
+
             <DialogFooter>
               <Button type="button" variant="outline" onClick={() => setEditingProf(null)}>Cancelar</Button>
-              <Button type="submit" className="bg-[#216f7d] hover:bg-[#1a5b67]" disabled={editForm.processing}>
+              <Button type="submit" className="bg-[#216f7d] hover:bg-[#1a5b67] text-white" disabled={editForm.processing}>
                 {editForm.processing ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : null}
                 Atualizar
               </Button>

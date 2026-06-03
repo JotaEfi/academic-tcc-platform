@@ -25,10 +25,10 @@ export function AppSidebarHeader({
 
     return (
         <header className="sticky top-0 z-50 flex h-16 shrink-0 items-center justify-between border-b border-sidebar-border/50 px-6 md:px-4 bg-white dark:bg-neutral-900">
-            <div className="flex items-center gap-10">
-                <Link href={dashboard()} prefetch className="flex items-center shrink-0">
-                    <AppLogo />
-                </Link>
+            <div className="flex items-center gap-4">
+                <SidebarTrigger className="text-neutral-500 hover:text-neutral-700 dark:text-neutral-400 dark:hover:text-neutral-200 cursor-pointer" />
+                <div className="h-4 w-px bg-neutral-200 dark:bg-neutral-800" />
+                <Breadcrumbs breadcrumbs={breadcrumbs} />
             </div>
             <div className="flex items-center gap-4">
                 <AppearanceToggleDropdown />

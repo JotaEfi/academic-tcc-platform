@@ -25,6 +25,7 @@ class User extends Authenticatable
         'role',
         'access_token',
         'temp_password',
+        'course_id',
     ];
 
     /**
@@ -37,6 +38,8 @@ class User extends Authenticatable
         'two_factor_secret',
         'two_factor_recovery_codes',
         'remember_token',
+        'access_token',
+        'temp_password',
     ];
 
     /**
@@ -60,5 +63,29 @@ class User extends Authenticatable
     public function tccsAsOrientador()
     {
         return $this->hasMany(Tcc::class, 'orientador_id');
+    }
+
+    /**
+     * Get the enrollments for the student.
+     */
+    public function enrollments()
+    {
+        return $this->hasMany(Enrollment::class, 'student_id');
+    }
+
+    /**
+     * Get the offerings (classes) taught by this professor.
+     */
+    public function offerings()
+    {
+        return $this->hasMany(Offering::class, 'professor_id');
+    }
+
+    /**
+     * Get the course associated with this student.
+     */
+    public function course()
+    {
+        return $this->belongsTo(Course::class, 'course_id');
     }
 }
