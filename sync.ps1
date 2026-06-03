@@ -17,4 +17,11 @@ docker compose exec app sh -c "rm -rf /var/www/html/public/build /var/www/html/n
 docker compose exec app chown -R www-data:www-data /var/www/html
 docker compose exec app chmod -R 775 /var/www/html/storage /var/www/html/bootstrap/cache
 
+Write-Host "Limpando caches de rotas e configuracoes no container..." -ForegroundColor Cyan
+docker compose exec app php artisan route:clear
+docker compose exec app php artisan config:clear
+
+Write-Host "Verificando integridade do banco de dados..." -ForegroundColor Cyan
+docker compose exec app php artisan tinker --execute="if (\App\Models\User::count() === 0) { echo 'Banco de dados vazio! Populando...'; \Artisan::call('db:seed', ['--force' => true]); }"
+
 Write-Host "Sincronização concluída com sucesso!" -ForegroundColor Green
