@@ -6,6 +6,45 @@ Sistema web para gerenciar e avaliar Trabalhos de Conclusão de Curso (TCCs) e d
 
 ---
 
+## 📸 Demonstração das Implementações
+
+### 1. Novo Menu Lateral e Divisão de Abas
+O menu lateral foi reestruturado de forma limpa e moderna, agrupando as funcionalidades do sistema: **Gestão Acadêmica** (que engloba a administração de disciplinas e turmas) e **Processo de TCC**. A opção antiga "Ambiente do Curso" foi removida da barra lateral.
+
+![Novo Menu Lateral](docs/screenshots/sidebar_groups.png)
+
+### 2. Gestão de Disciplinas por Curso
+Agora é possível visualizar e gerenciar a grade curricular filtrando por abas dinâmicas de cada curso (Sistemas de Informação e Análise e Des. de Sistemas).
+
+![Gestão de Disciplinas](docs/screenshots/manage_subjects.png)
+
+### 3. Cadastro de Nova Disciplina
+Formulário interativo com seleção explícita do curso associado para a nova disciplina cadastrada.
+
+![Nova Disciplina](docs/screenshots/new_subject.png)
+
+### 4. Gestão de Turmas por Curso
+As turmas agora ficam organizadas em formato grid, filtradas por abas com base nos cursos e exibindo o professor responsável e a quantidade de alunos matriculados.
+
+![Gestão de Turmas](docs/screenshots/manage_classes.png)
+
+### 5. Matrícula de Alunos e Diário de Classe (Roster)
+Permite a matrícula de alunos nas turmas de forma individual ou em lote (via arquivo CSV). Exibe a relação detalhada dos alunos com média final calculada a partir de fórmulas dinâmicas, status e ações rápidas.
+
+![Diário de Classe](docs/screenshots/class_roster.png)
+
+### 6. Cadastro e Importação de Alunos
+Painel centralizado de cadastro de alunos, onde é possível visualizar a relação de alunos por curso (SI e ADS), buscar por nome ou e-mail, matricular de forma manual ou importar dados em lote (via arquivo CSV).
+
+![Cadastro de Alunos](docs/screenshots/manage_students.png)
+
+### 7. Edição de Informações de Cadastro do Aluno
+Modal interativo para atualizar as informações de cadastro do aluno (Nome, E-mail, Curso Principal e alteração de senha opcional).
+
+![Edição de Aluno](docs/screenshots/edit_student.png)
+
+---
+
 ## 🚀 Início Rápido (Desenvolvimento Local)
 
 ### Pré-requisitos
@@ -124,44 +163,6 @@ make prune          # Remover containers, imagens e volumes não usados
 
 ---
 
-## 📸 Demonstração das Implementações
-
-### 1. Novo Menu Lateral e Divisão de Abas
-O menu lateral foi reestruturado de forma limpa e moderna, agrupando as funcionalidades do sistema: **Gestão Acadêmica** (que engloba a administração de disciplinas e turmas) e **Processo de TCC**. A opção antiga "Ambiente do Curso" foi removida da barra lateral.
-
-![Novo Menu Lateral](docs/screenshots/sidebar_groups.png)
-
-### 2. Gestão de Disciplinas por Curso
-Agora é possível visualizar e gerenciar a grade curricular filtrando por abas dinâmicas de cada curso (Sistemas de Informação e Análise e Des. de Sistemas).
-
-![Gestão de Disciplinas](docs/screenshots/manage_subjects.png)
-
-### 3. Cadastro de Nova Disciplina
-Formulário interativo com seleção explícita do curso associado para a nova disciplina cadastrada.
-
-![Nova Disciplina](docs/screenshots/new_subject.png)
-
-### 4. Gestão de Turmas por Curso
-As turmas agora ficam organizadas em formato grid, filtradas por abas com base nos cursos e exibindo o professor responsável e a quantidade de alunos matriculados.
-
-![Gestão de Turmas](docs/screenshots/manage_classes.png)
-
-### 5. Matrícula de Alunos e Diário de Classe (Roster)
-Permite a matrícula de alunos nas turmas de forma individual ou em lote (via arquivo CSV). Exibe a relação detalhada dos alunos com média final calculada a partir de fórmulas dinâmicas, status e ações rápidas.
-
-![Diário de Classe](docs/screenshots/class_roster.png)
-
-### 6. Cadastro e Importação de Alunos
-Painel centralizado de cadastro de alunos, onde é possível visualizar a relação de alunos por curso (SI e ADS), buscar por nome ou e-mail, matricular de forma manual ou importar dados em lote (via arquivo CSV).
-
-![Cadastro de Alunos](docs/screenshots/manage_students.png)
-
-### 7. Edição de Informações de Cadastro do Aluno
-Modal interativo para atualizar as informações de cadastro do aluno (Nome, E-mail, Curso Principal e alteração de senha opcional).
-
-![Edição de Aluno](docs/screenshots/edit_student.png)
-
----
 
 ## 👥 Funcionalidades
 
